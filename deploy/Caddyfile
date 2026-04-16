@@ -13,10 +13,13 @@
 #
 # Postgres/ClickHouse/Redis live on the internal docker network only.
 
-# Global options: ACME account email for Let's Encrypt.
-{
-	email {$ACME_EMAIL}
-}
+# No global options block: Caddy registers an anonymous Let's Encrypt
+# account. This means LE can't email you expiry warnings, but Caddy
+# renews certs automatically (60 days before expiry) so it rarely
+# matters. If you want email notifications, the ACME_EMAIL plumbing is
+# still in place; add a global block here referencing {$ACME_EMAIL}
+# once you've confirmed ACME_EMAIL is set to a real address in .env.prod
+# (Caddy crashes on an empty `email` directive).
 
 {$DOMAIN} {
 	encode gzip zstd
