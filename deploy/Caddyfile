@@ -34,14 +34,17 @@
 	}
 
 	# Ingest hot path + authenticated /v1 API -> Go service.
-	@api {
-		path /collect /collect/* /v1/* /healthz
+	# `handle` blocks are mutually exclusive; whichever matches first
+	# runs, and its contents are self-contained. Keeps the fallback
+	# from swallowing /healthz etc.
+	@api path /collect /collect/* /v1/* /healthz
+	handle @api {
+		reverse_proxy api:8080
 	}
-	reverse_proxy @api api:8080
 
 	# Anything else: tiny advertising JSON so it's obvious what this is.
-	# Returning 404 on / would look broken; this makes the intent clear
-	# without exposing anything sensitive.
+	# Returning a bare 404 on / would look broken; this makes intent
+	# clear without exposing anything sensitive.
 	handle {
 		header Content-Type application/json
 		respond `{"service":"webalytics","api":"/v1","ingest":"/collect","docs":"https://github.com/YOUR_ORG/webalytics"}` 404
