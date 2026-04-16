@@ -99,8 +99,8 @@ User=ubuntu
 Group=docker
 WorkingDirectory=/opt/webalytics
 EnvironmentFile=/opt/webalytics/.env.prod
-ExecStart=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile prod up -d --build
-ExecStop=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile prod down
+ExecStart=/usr/bin/docker compose --env-file /opt/webalytics/.env.prod -f docker-compose.yml -f docker-compose.prod.yml --profile prod up -d --build
+ExecStop=/usr/bin/docker compose --env-file /opt/webalytics/.env.prod -f docker-compose.yml -f docker-compose.prod.yml --profile prod down
 TimeoutStartSec=600
 
 [Install]

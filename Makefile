@@ -156,7 +156,7 @@ deploy:
 
 prod-logs:
 	@test -n "$(HOST)" || (echo "HOST=ubuntu@<ip> make prod-logs" && exit 1)
-	ssh $(HOST) 'cd /opt/webalytics && sudo docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile prod logs -f --tail=200'
+	ssh $(HOST) 'cd /opt/webalytics && sudo docker compose --env-file /opt/webalytics/.env.prod -f docker-compose.yml -f docker-compose.prod.yml --profile prod logs -f --tail=200'
 
 prod-ssh:
 	@test -n "$(HOST)" || (echo "HOST=ubuntu@<ip> make prod-ssh" && exit 1)
