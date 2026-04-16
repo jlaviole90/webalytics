@@ -76,6 +76,17 @@ e2e:
 seed:
 	@./deploy/seed.sh
 
+# Provision a new tenant (org + site + domains + token). See
+# deploy/provision-site.sh for the full env-var contract; the most
+# common invocation is:
+#   make provision ORG_SLUG=acme ORG_NAME="Acme" SITE_NAME="Acme" DOMAINS="acme.com"
+provision:
+	@test -n "$(ORG_SLUG)" || (echo "ORG_SLUG=... ORG_NAME=... SITE_NAME=... DOMAINS=... make provision" && exit 1)
+	@test -n "$(ORG_NAME)" || (echo "ORG_NAME required" && exit 1)
+	@test -n "$(SITE_NAME)" || (echo "SITE_NAME required" && exit 1)
+	@test -n "$(DOMAINS)" || (echo "DOMAINS required" && exit 1)
+	ORG_SLUG=$(ORG_SLUG) ORG_NAME="$(ORG_NAME)" SITE_NAME="$(SITE_NAME)" DOMAINS="$(DOMAINS)" bash deploy/provision-site.sh
+
 # Wipes only the event/analytics data out of ClickHouse, leaving the api,
 # seed config, users/sites intact. Useful when dashboard counts have been
 # inflated by Playwright runs or prior dev sessions. To nuke everything

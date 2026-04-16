@@ -8,6 +8,7 @@ coverage/
 
 # Seed artifacts / local env
 deploy/.seeded.env
+deploy/tenants/
 .env
 .env.local
 

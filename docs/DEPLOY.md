@@ -111,6 +111,46 @@ ssh ubuntu@<ip> 'cat /opt/webalytics/deploy/.seeded.env'
 # WEBALYTICS_TOKEN=wb_pat_live_...     <- server-side bearer; keep secret
 ```
 
+### 3a. Provisioning additional tenants (multiple clients)
+
+The seed script creates one organization and one site. To host more
+customers — or to add your own personal site alongside a client's —
+use the `provision-site.sh` helper. Each tenant gets its own
+organization, site, domains, and bearer token. Token scopes are
+per-organization, so one tenant cannot ever query another's data.
+
+```bash
+ssh ubuntu@<ip>
+cd /opt/webalytics
+set -a && source .env.prod && set +a
+ORG_SLUG=acme ORG_NAME="Acme Corp" \
+  SITE_NAME="Acme Marketing" DOMAINS="acme.com,www.acme.com" \
+  bash deploy/provision-site.sh
+```
+
+Or from your laptop against a local stack:
+
+```bash
+make provision ORG_SLUG=personal ORG_NAME="My Name" \
+  SITE_NAME="Personal Site" DOMAINS="example.com"
+```
+
+The script prints the credentials and also writes them to
+`deploy/tenants/<org_slug>.env` (mode 0600). Running it again with the
+same `ORG_SLUG` + `SITE_NAME` rotates the token but keeps the org/site
+stable, so the install instructions you've already shared stay valid.
+
+Isolation guarantees:
+
+- Tokens are tied to a single organization. A token issued for
+  org A cannot read org B's data — the `/v1` middleware rejects any
+  request whose resolved site is not owned by the token's org.
+- Postgres RLS is scoped by `organization_id`, so direct DB reads
+  through the app roles can only see their own rows.
+- ClickHouse queries are keyed by `site_uuid`; the API layer always
+  resolves the site against the token's organization before issuing
+  the query.
+
 ## 4. Wire up CI/CD
 
 In GitHub → Settings → Environments → **production** (new), add:

@@ -1,0 +1,33 @@
+{
+  "name": "@webalytics/dashboard-angular",
+  "version": "0.1.0",
+  "description": "Standalone Angular 17+ components for displaying Webalytics data. Mirrors @webalytics/dashboard-react.",
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "ng-packagr -p ng-package.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@angular/common": ">=17",
+    "@angular/core": ">=17"
+  },
+  "devDependencies": {
+    "@angular/common": "^17.3.0",
+    "@angular/compiler": "^17.3.0",
+    "@angular/compiler-cli": "^17.3.0",
+    "@angular/core": "^17.3.0",
+    "ng-packagr": "^17.3.0",
+    "rxjs": "^7.8.1",
+    "typescript": "~5.4.5",
+    "zone.js": "^0.14.0"
+  },
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  }
+}

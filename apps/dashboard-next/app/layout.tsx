@@ -13,7 +13,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         style={{
           fontFamily:
             "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif",
-          maxWidth: 960,
+          maxWidth: 1200,
           margin: "32px auto",
           padding: "0 24px",
           color: "#111",
@@ -35,6 +35,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <Link href="/">Realtime</Link>
             <Link href="/pages">Top pages</Link>
             <Link href="/vitals">Web vitals</Link>
+            <Link href="/overview">Overview</Link>
           </nav>
         </header>
         {children}
