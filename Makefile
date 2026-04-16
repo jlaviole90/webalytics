@@ -6,9 +6,11 @@
 #   make logs       tail the api logs
 #   make ps         list containers
 #
-# Demo app (Next.js dogfood site + tracker packages):
-#   make up-demo    build + start demo on :3000 (adds to the core stack)
-#   make demo-logs  tail the demo app's logs
+# Demo apps (full dogfood loop):
+#   make up-demo        build + start BOTH demo apps (writer on :3000,
+#                       dashboard on :3001) alongside the core stack
+#   make demo-logs      tail the tracker-writer app's logs
+#   make dashboard-logs tail the dashboard app's logs
 #
 # Go:
 #   make build test test-race vet tidy
@@ -27,8 +29,8 @@
 #   make seed       create org/site/domain/token and write deploy/.seeded.env
 #                   (both Go e2e and browser e2e source this file)
 
-.PHONY: up up-demo down restart logs demo-logs ps \
-        build test test-race e2e seed fmt vet tidy \
+.PHONY: up up-demo down restart logs demo-logs dashboard-logs ps \
+        build test test-race e2e seed reset-data fmt vet tidy \
         js-install js-build js-test js-size \
         browser-install browser-e2e
 
@@ -51,6 +53,9 @@ logs:
 demo-logs:
 	$(COMPOSE) logs -f demo-next
 
+dashboard-logs:
+	$(COMPOSE) logs -f dashboard-next
+
 ps:
 	$(COMPOSE) --profile demo ps
 
@@ -69,6 +74,22 @@ e2e:
 
 seed:
 	@./deploy/seed.sh
+
+# Wipes only the event/analytics data out of ClickHouse, leaving the api,
+# seed config, users/sites intact. Useful when dashboard counts have been
+# inflated by Playwright runs or prior dev sessions. To nuke everything
+# (including your seed token/site UUID) use `make down && make up-demo`.
+reset-data:
+	@echo "truncating all webalytics.* tables in clickhouse..."
+	@$(COMPOSE) exec -T clickhouse clickhouse-client \
+		--user=webalytics --password=$${CLICKHOUSE_PASSWORD:-changeme} \
+		-q "TRUNCATE TABLE IF EXISTS webalytics.events; \
+		    TRUNCATE TABLE IF EXISTS webalytics.sessions; \
+		    TRUNCATE TABLE IF EXISTS webalytics.daily_traffic; \
+		    TRUNCATE TABLE IF EXISTS webalytics.daily_referrers; \
+		    TRUNCATE TABLE IF EXISTS webalytics.daily_utm; \
+		    TRUNCATE TABLE IF EXISTS webalytics.daily_vitals;"
+	@echo "done. Dashboard should read zeros until new events arrive."
 
 fmt:
 	gofmt -s -w .

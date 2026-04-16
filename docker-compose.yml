@@ -110,9 +110,9 @@ services:
       - "8080:8080"
 
   demo-next:
-    # Next.js dogfood app — imports @webalytics/tracker-next and POSTs
-    # pageviews/events at the api container. Opt-in; use `--profile demo`
-    # (or `make demo-up`) so the core stack stays lean.
+    # Next.js dogfood "writer" app — imports @webalytics/tracker-next and
+    # POSTs pageviews/events at the api container. Opt-in; use `--profile
+    # demo` (or `make up-demo`) so the core stack stays lean.
     profiles: ["demo"]
     build:
       context: .
@@ -124,6 +124,30 @@ services:
         NEXT_PUBLIC_WEBALYTICS_HOST: ${NEXT_PUBLIC_WEBALYTICS_HOST:-http://localhost:8080}
     ports:
       - "3000:3000"
+    depends_on:
+      api:
+        condition: service_started
+
+  dashboard-next:
+    # Read-only "reader" app: server components call /v1/stats/* with a
+    # bearer token that stays inside the container. Seed values (site UUID,
+    # token) are randomized per `make seed`, so we bind-mount ./deploy so
+    # the app can read deploy/.seeded.env at request time.
+    profiles: ["demo"]
+    build:
+      context: .
+      dockerfile: apps/dashboard-next/Dockerfile
+    environment:
+      # Inside the docker network the api is reachable as `api:8080`.
+      WEBALYTICS_API_HOST: http://api:8080
+      # Token + UUID are populated via the mounted seed file; overriding
+      # them here takes precedence if set.
+      # WEBALYTICS_API_TOKEN: ""
+      # WEBALYTICS_SITE_UUID: ""
+    volumes:
+      - ./deploy:/app/deploy:ro
+    ports:
+      - "3001:3001"
     depends_on:
       api:
         condition: service_started

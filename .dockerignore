@@ -1,0 +1,41 @@
+# Applied to ALL `docker build` contexts in this repo (api, demo-next,
+# dashboard-next). Without this, Docker would copy all node_modules and
+# Next build artifacts into every build context, blowing up disk and
+# slowing every cache miss.
+
+# JS ecosystem
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/coverage
+**/*.tsbuildinfo
+
+# Go build artifacts
+bin/
+webalytics
+*.test
+*.out
+
+# Git + editor + OS
+.git
+.gitignore
+.cursorignore
+.vscode
+.idea
+.DS_Store
+
+# Local-only env + seed artifacts
+deploy/.seeded.env
+.env
+.env.local
+
+# Test output
+test/browser/test-results
+test/browser/playwright-report
+
+# Docs / CI that never belong in images
+README.md
+**/*.md
+docs/
+.github/
