@@ -44,15 +44,21 @@ PSQL -c "
 "
 
 # 4. Token — we generate the raw value here so we can hand it to the caller.
+#    We rotate on every seed run so the DB and deploy/.seeded.env never
+#    drift. (Previous version used ON CONFLICT DO NOTHING + a constant
+#    12-char prefix, which silently kept the first token forever while
+#    the file got overwritten with later ones.)
 RAW_TOKEN="wb_pat_live_$(openssl rand -hex 16)"
 TOKEN_HASH=$(printf "%s" "$RAW_TOKEN" | openssl dgst -sha256 -binary | xxd -p -c 200)
-TOKEN_PREFIX=${RAW_TOKEN:0:12}
+# Use 20 chars so each prefix is unique across seeds (12-char "wb_pat_live_"
+# plus 8 hex chars of entropy).
+TOKEN_PREFIX=${RAW_TOKEN:0:20}
 
 PSQL -c "
+  DELETE FROM api_tokens WHERE organization_id = '$ORG_ID' AND name = 'dev-token';
   INSERT INTO api_tokens (organization_id, name, token_hash, token_prefix, scopes)
   VALUES ('$ORG_ID', 'dev-token', decode('$TOKEN_HASH', 'hex'), '$TOKEN_PREFIX',
-          ARRAY['read:events','write:sites','admin:tokens','admin:export']::TEXT[])
-  ON CONFLICT DO NOTHING;
+          ARRAY['read:events','write:sites','admin:tokens','admin:export']::TEXT[]);
 "
 
 cat <<EOF
