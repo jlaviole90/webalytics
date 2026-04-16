@@ -1,0 +1,16 @@
+# Copy to terraform.tfvars and edit.
+
+# Required: where cloud-init pulls the code from on boot.
+git_repo_url = "https://github.com/YOUR_ORG/webalytics.git"
+git_branch   = "main"
+
+# Optional: set to flip Caddy into auto-HTTPS mode. Leave empty for IP-only
+# HTTP. Remember to point DNS at the static IP output.
+domain = ""
+
+# Optional: tighten SSH access to your office / home IP.
+# allow_ssh_from_cidr = "203.0.113.42/32"
+
+# Optional: paste the public key you want root access with. Leave unset to
+# have Terraform generate a fresh ed25519 pair and drop it in keys/.
+# ssh_public_key = "ssh-ed25519 AAAA... you@laptop"

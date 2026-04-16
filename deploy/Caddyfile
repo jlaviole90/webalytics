@@ -1,0 +1,37 @@
+# Caddyfile for production.
+#
+# Behavior is driven by the DOMAIN env var:
+#   - unset or empty  -> HTTP only on :80 (works on bare IP)
+#   - set (e.g. analytics.example.com) -> auto HTTPS via Let's Encrypt
+#
+# Routes:
+#   /collect, /collect/**          -> Go api (tracker ingest)
+#   /v1/**                         -> Go api (authenticated query API)
+#   /healthz                       -> Go api (health)
+#   everything else                -> Next.js dashboard
+#
+# We never expose postgres/clickhouse/redis — they live on the internal
+# docker network only.
+
+# The first token is the site address. Caddy treats :80 as "HTTP on all
+# hosts, no auto-cert"; a bare hostname triggers automatic HTTPS.
+{$DOMAIN::80} {
+	encode gzip zstd
+
+	# Security headers. Kept minimal since the dashboard is single-origin.
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options        "SAMEORIGIN"
+		Referrer-Policy        "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Ingest hot path + authenticated /v1 API -> Go service.
+	@api {
+		path /collect /collect/* /v1/* /healthz
+	}
+	reverse_proxy @api api:8080
+
+	# Everything else -> dashboard.
+	reverse_proxy dashboard-next:3001
+}

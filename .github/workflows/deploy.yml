@@ -1,0 +1,85 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch or SHA to deploy"
+        required: false
+        default: "main"
+
+concurrency:
+  # One in-flight deploy per target, cancel any queued duplicates.
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Only deploy when CI succeeded (or when triggered manually).
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # Gate on an environment so secrets + approvals can live in one place.
+    environment: production
+    timeout-minutes: 15
+
+    steps:
+      - name: Resolve ref
+        id: ref
+        run: |
+          REF="${{ github.event.inputs.branch || 'main' }}"
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
+
+      - name: Pull + rebuild on remote
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          REF:  ${{ steps.ref.outputs.ref }}
+        run: |
+          # Single SSH call so any failure aborts the whole deploy; the
+          # remote script is self-contained and safe to re-run.
+          ssh ubuntu@"$HOST" bash -s <<EOF
+          set -euxo pipefail
+          cd /opt/webalytics
+          git fetch --all --prune
+          git checkout $REF
+          git reset --hard origin/$REF
+
+          # systemd unit handles the full compose up --build lifecycle.
+          sudo systemctl restart webalytics.service
+
+          # Wait for the api to answer /healthz before we call the deploy green.
+          for i in \$(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8080/healthz >/dev/null; then
+              echo "api healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "api never became healthy" >&2
+          sudo journalctl -u webalytics.service --no-pager | tail -n 100 >&2 || true
+          exit 1
+          EOF
+
+      - name: Smoke test /collect via public URL
+        env:
+          PUBLIC_URL: ${{ secrets.DEPLOY_PUBLIC_URL }}
+        if: env.PUBLIC_URL != ''
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_URL/healthz")
+          if [ "$code" != "200" ]; then
+            echo "public /healthz returned $code" >&2
+            exit 1
+          fi

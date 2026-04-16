@@ -1,0 +1,80 @@
+# docker-compose.prod.yml
+#
+# Production overlay for the Lightsail deploy. Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Differences from the base compose file:
+#   - DB ports are not bound to the host (security)
+#   - No demo-next (that's a local dogfood writer, not a prod service)
+#   - Adds a Caddy reverse proxy on :80 / :443
+#   - All secrets come from a .env file on the box (or GH Actions secrets)
+
+services:
+  postgres:
+    # Override the base mapping by setting to empty. Docker compose merges
+    # lists, so without this the :5432 publish would still apply.
+    ports: []
+
+  clickhouse:
+    ports: []
+
+  redis:
+    ports: []
+
+  api:
+    ports: []
+    environment:
+      LOG_LEVEL: info
+      LOG_FORMAT: json
+      POSTGRES_APP_DSN: postgres://webalytics_app:app-password@postgres:5432/webalytics?sslmode=disable
+      POSTGRES_INGEST_DSN: postgres://webalytics_ingest:ingest-password@postgres:5432/webalytics?sslmode=disable
+      CLICKHOUSE_ADDR: clickhouse:9000
+      CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE:-webalytics}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-webalytics}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?CLICKHOUSE_PASSWORD is required in prod}
+      REDIS_ADDR: redis:6379
+      # MUST be set in .env: used as HMAC salt for the rotating session id.
+      SESSION_SALT_BASE: ${SESSION_SALT_BASE:?SESSION_SALT_BASE is required in prod}
+      INGEST_BATCH_MAX_ROWS: 200
+      INGEST_BATCH_FLUSH_MS: 250ms
+
+  dashboard-next:
+    # Opt-in via `--profile demo` in local dev; in prod we always want it up.
+    profiles: []
+    ports: []
+    environment:
+      WEBALYTICS_API_HOST: http://api:8080
+      # Token + site UUID are seeded via deploy/.seeded.env on the box; the
+      # dashboard reads them at request time from /app/deploy.
+    depends_on:
+      api:
+        condition: service_started
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      # Unset => Caddy listens on :80 only (no auto HTTPS).
+      # Set to your hostname (e.g. analytics.example.com) to trigger Let's
+      # Encrypt. Caddy will restart and get a real cert automatically.
+      DOMAIN: ${DOMAIN:-}
+    depends_on:
+      api:
+        condition: service_started
+      dashboard-next:
+        condition: service_started
+
+  # demo-next is intentionally omitted from prod. The local `make up-demo`
+  # target stays useful for developer-side dogfooding.
+
+volumes:
+  caddy_data:
+  caddy_config:

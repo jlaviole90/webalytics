@@ -15,3 +15,11 @@ deploy/.seeded.env
 test/browser/test-results/
 test/browser/playwright-report/
 test/browser/node_modules/
+
+# Terraform (state + generated SSH keys)
+infra/terraform/.terraform/
+infra/terraform/.terraform.lock.hcl
+infra/terraform/terraform.tfstate
+infra/terraform/terraform.tfstate.backup
+infra/terraform/terraform.tfvars
+infra/terraform/keys/

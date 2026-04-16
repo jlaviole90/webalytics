@@ -32,7 +32,8 @@
 .PHONY: up up-demo down restart logs demo-logs dashboard-logs ps \
         build test test-race e2e seed reset-data fmt vet tidy \
         js-install js-build js-test js-size \
-        browser-install browser-e2e
+        browser-install browser-e2e \
+        tf-init tf-plan tf-apply tf-destroy tf-output deploy prod-logs prod-ssh
 
 COMPOSE ?= docker compose
 
@@ -124,3 +125,39 @@ browser-install:
 browser-e2e:
 	@echo "running browser e2e against $${BASE_URL:-http://localhost:3000} (assumes 'make up-demo' + 'make seed')"
 	npm run test -w webalytics-browser-e2e
+
+# --- Terraform / deploy ----------------------------------------------------
+# Lightsail box provisioning + remote redeploy. Requires AWS creds in env
+# (or ~/.aws/credentials). One-time: `cd infra/terraform && cp
+# terraform.tfvars.example terraform.tfvars && $EDITOR terraform.tfvars`.
+
+TF_DIR ?= infra/terraform
+
+tf-init:
+	cd $(TF_DIR) && terraform init
+
+tf-plan:
+	cd $(TF_DIR) && terraform plan
+
+tf-apply:
+	cd $(TF_DIR) && terraform apply
+
+tf-destroy:
+	cd $(TF_DIR) && terraform destroy
+
+tf-output:
+	cd $(TF_DIR) && terraform output
+
+# Out-of-band manual redeploy (CI does this automatically on green main).
+# Pulls main + restarts the systemd unit on the Lightsail box.
+deploy:
+	@test -n "$(HOST)" || (echo "HOST=ubuntu@<ip> make deploy" && exit 1)
+	ssh $(HOST) 'set -e; cd /opt/webalytics && git fetch --all --prune && git reset --hard origin/main && sudo systemctl restart webalytics.service && sudo systemctl status --no-pager webalytics.service | head -n 20'
+
+prod-logs:
+	@test -n "$(HOST)" || (echo "HOST=ubuntu@<ip> make prod-logs" && exit 1)
+	ssh $(HOST) 'cd /opt/webalytics && sudo docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f --tail=200'
+
+prod-ssh:
+	@test -n "$(HOST)" || (echo "HOST=ubuntu@<ip> make prod-ssh" && exit 1)
+	ssh $(HOST)
