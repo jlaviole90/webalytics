@@ -1,13 +1,21 @@
 # docker-compose.prod.yml
 #
 # Production overlay for the Lightsail deploy. Usage:
-#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#   docker compose --env-file .env.prod \
+#     -f docker-compose.yml -f docker-compose.prod.yml \
+#     --profile prod up -d
+#
+# Scope on purpose: the AWS box hosts only the ingest + query service
+# (Go api + postgres + clickhouse + redis) fronted by Caddy for TLS.
+# The dashboard / any UI is NOT deployed here — it's UI-over-API and
+# can run anywhere (laptop, Vercel, embedded in the tracker package
+# later). Keeps this box focused on the one job that must be public.
 #
 # Differences from the base compose file:
 #   - DB ports are not bound to the host (security)
 #   - No demo-next (that's a local dogfood writer, not a prod service)
-#   - Adds a Caddy reverse proxy on :80 / :443
-#   - All secrets come from a .env file on the box (or GH Actions secrets)
+#   - No dashboard-next (see above; local `make up-demo` still runs it)
+#   - Adds a Caddy reverse proxy on :80 / :443 with auto Let's Encrypt
 
 services:
   postgres:
@@ -38,23 +46,8 @@ services:
       INGEST_BATCH_MAX_ROWS: 200
       INGEST_BATCH_FLUSH_MS: 250ms
 
-  dashboard-next:
-    # Base compose has profiles: ["demo"] for local; override appends
-    # "prod" so `--profile prod` enables it. Compose merges list values
-    # rather than replacing, so `profiles: []` here wouldn't actually
-    # unset the demo profile — hence the dedicated prod profile.
-    profiles: ["prod"]
-    ports: []
-    environment:
-      WEBALYTICS_API_HOST: http://api:8080
-      # Token + site UUID are seeded via deploy/.seeded.env on the box; the
-      # dashboard reads them at request time from /app/deploy.
-    depends_on:
-      api:
-        condition: service_started
-
   caddy:
-    # Only spin up in prod; local dev hits api/dashboard directly.
+    # Only spin up in prod; local dev hits api directly on :8080.
     profiles: ["prod"]
     image: caddy:2-alpine
     restart: unless-stopped
@@ -75,11 +68,10 @@ services:
     depends_on:
       api:
         condition: service_started
-      dashboard-next:
-        condition: service_started
 
-  # demo-next is intentionally omitted from prod. The local `make up-demo`
-  # target stays useful for developer-side dogfooding.
+  # demo-next and dashboard-next are intentionally omitted from prod.
+  # They still exist in the base compose under `profiles: ["demo"]`,
+  # so `make up-demo` keeps working locally.
 
 volumes:
   caddy_data:

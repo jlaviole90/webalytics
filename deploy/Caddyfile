@@ -5,14 +5,13 @@
 #                 Triggers automatic HTTPS via Let's Encrypt.
 #   ACME_EMAIL  - optional. Tells LE where to send expiry warnings.
 #
-# Routes:
+# This box is API-only. Routes:
 #   /collect, /collect/**          -> Go api (tracker ingest)
 #   /v1/**                         -> Go api (authenticated query API)
 #   /healthz                       -> Go api (health)
-#   everything else                -> Next.js dashboard
+#   everything else                -> 404 JSON (no UI hosted here)
 #
-# Postgres/ClickHouse/Redis live on the internal docker network only and
-# are never exposed by Caddy.
+# Postgres/ClickHouse/Redis live on the internal docker network only.
 
 # Global options: ACME account email for Let's Encrypt.
 {
@@ -22,7 +21,7 @@
 {$DOMAIN} {
 	encode gzip zstd
 
-	# Minimal security headers for a single-origin dashboard.
+	# Minimal security headers.
 	header {
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options        "SAMEORIGIN"
@@ -37,6 +36,11 @@
 	}
 	reverse_proxy @api api:8080
 
-	# Everything else -> dashboard.
-	reverse_proxy dashboard-next:3001
+	# Anything else: tiny advertising JSON so it's obvious what this is.
+	# Returning 404 on / would look broken; this makes the intent clear
+	# without exposing anything sensitive.
+	handle {
+		header Content-Type application/json
+		respond `{"service":"webalytics","api":"/v1","ingest":"/collect","docs":"https://github.com/YOUR_ORG/webalytics"}` 404
+	}
 }
