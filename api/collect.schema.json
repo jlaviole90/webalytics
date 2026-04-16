@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/webalytics/webalytics/schemas/collect.schema.json",
+  "title": "WebalyticsCollectEvent",
+  "description": "Canonical request body for POST /collect. The tracker sends one of these for each pageview, custom event, or web vital. Server-side enrichment fills in IP-derived geo, UA parsing, and session identity.",
+  "type": "object",
+  "required": ["site_id", "event", "url"],
+  "additionalProperties": false,
+  "properties": {
+    "site_id": {
+      "type": "string",
+      "pattern": "^wb_(live|test)_[A-Za-z0-9]{16,}$",
+      "description": "Public site identifier embedded in the tracker."
+    },
+    "event": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_.:-]+$",
+      "description": "Event name. 'pageview' and 'web_vital' are reserved names with special server handling. All other values are treated as custom events."
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 2048,
+      "description": "Absolute URL of the page where the event fired. The server parses this into hostname / url_path / url_query; the raw URL is never persisted."
+    },
+    "referrer": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 2048,
+      "description": "document.referrer. Server derives referrer_host and referrer_path."
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 512,
+      "description": "Document title at event time."
+    },
+
+    "environment": {
+      "type": "string",
+      "maxLength": 32,
+      "pattern": "^[a-zA-Z0-9_.-]+$",
+      "default": "production",
+      "description": "Deployment environment tag."
+    },
+    "release": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Release/version identifier (e.g. git SHA, semver)."
+    },
+    "route": {
+      "type": "string",
+      "maxLength": 512,
+      "description": "Normalized route (e.g. '/blog/[slug]'). Optional — frameworks can supply it; plain HTML sites will not."
+    },
+
+    "screen": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "w": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "h": { "type": "integer", "minimum": 0, "maximum": 65535 }
+      }
+    },
+    "viewport": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "w": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "h": { "type": "integer", "minimum": 0, "maximum": 65535 }
+      }
+    },
+    "language": {
+      "type": "string",
+      "maxLength": 32,
+      "description": "Browser language tag (e.g. en-US)."
+    },
+
+    "props": {
+      "type": "object",
+      "description": "Arbitrary event properties. Scalar values only; nested objects and arrays are flattened or rejected server-side.",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "string", "maxLength": 1024 },
+          { "type": "number" },
+          { "type": "boolean" },
+          { "type": "null" }
+        ]
+      },
+      "maxProperties": 50
+    },
+
+    "revenue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["amount", "currency"],
+      "properties": {
+        "amount": { "type": "number" },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "ISO 4217 currency code."
+        }
+      }
+    },
+
+    "perf": {
+      "type": "object",
+      "description": "Navigation timing. Populated by the tracker for pageview events when available.",
+      "additionalProperties": false,
+      "properties": {
+        "ttfb_ms": { "type": "integer", "minimum": 0, "maximum": 300000 },
+        "load_ms": { "type": "integer", "minimum": 0, "maximum": 300000 }
+      }
+    },
+
+    "vital": {
+      "type": "object",
+      "description": "Present only when `event` = 'web_vital'. The tracker fires one request per vital reported by the web-vitals library.",
+      "additionalProperties": false,
+      "required": ["name", "value"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": ["LCP", "INP", "CLS", "FCP", "TTFB"]
+        },
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Milliseconds for all vitals except CLS (unitless score)."
+        },
+        "rating": {
+          "type": "string",
+          "enum": ["good", "needs-improvement", "poor"],
+          "description": "Optional; server recomputes from thresholds if missing."
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "web-vitals library's per-metric id, for dedup."
+        },
+        "nav_type": {
+          "type": "string",
+          "enum": ["navigate", "reload", "back-forward", "back-forward-cache", "prerender", "restore"]
+        }
+      }
+    },
+
+    "ts_client": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Client epoch ms. Used to estimate clock skew; the server always stamps the authoritative `ts`."
+    }
+  },
+
+  "allOf": [
+    {
+      "description": "web_vital events MUST carry a `vital` payload; non-web_vital events MUST NOT.",
+      "if":   { "properties": { "event": { "const": "web_vital" } }, "required": ["event"] },
+      "then": { "required": ["vital"] },
+      "else": { "not": { "required": ["vital"] } }
+    }
+  ],
+
+  "examples": [
+    {
+      "site_id": "wb_live_7f2a3b4c5d6e7f80",
+      "event": "pageview",
+      "url": "https://www.example.com/blog/hello-world?utm_source=reddit",
+      "referrer": "https://www.reddit.com/r/golang/",
+      "title": "Hello World — Example",
+      "environment": "production",
+      "release": "v1.4.2",
+      "route": "/blog/[slug]",
+      "screen": { "w": 2560, "h": 1440 },
+      "viewport": { "w": 1280, "h": 800 },
+      "language": "en-US",
+      "perf": { "ttfb_ms": 120, "load_ms": 430 },
+      "ts_client": 1713270000123
+    },
+    {
+      "site_id": "wb_live_7f2a3b4c5d6e7f80",
+      "event": "signup",
+      "url": "https://www.example.com/signup",
+      "environment": "production",
+      "props": { "plan": "pro", "referred_by": "newsletter" },
+      "revenue": { "amount": 19.99, "currency": "USD" }
+    },
+    {
+      "site_id": "wb_live_7f2a3b4c5d6e7f80",
+      "event": "web_vital",
+      "url": "https://www.example.com/blog/hello-world",
+      "environment": "production",
+      "route": "/blog/[slug]",
+      "vital": {
+        "name": "LCP",
+        "value": 2348.2,
+        "rating": "needs-improvement",
+        "id": "v3-1713270012345-8f3d",
+        "nav_type": "navigate"
+      }
+    }
+  ]
+}

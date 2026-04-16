@@ -1,0 +1,4 @@
+BEGIN;
+DROP FUNCTION IF EXISTS touch_api_token(UUID);
+DROP FUNCTION IF EXISTS resolve_api_token(BYTEA);
+COMMIT;

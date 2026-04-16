@@ -1,0 +1,1085 @@
+openapi: 3.1.0
+info:
+  title: Webalytics Query & Admin API
+  version: 0.1.0
+  description: |
+    Read and admin surface for the Webalytics analytics service.
+
+    Two logical APIs share this spec but live behind different middleware:
+      * `/v1/**` — bearer-authenticated query & admin endpoints (this doc)
+      * `/collect` — unauthenticated ingest (documented separately via
+        `api/collect.schema.json`; shown here for completeness only)
+
+    Every `/v1/**` request MUST carry `Authorization: Bearer <api_token>`.
+    Tokens are scoped to an organization and optionally a single site.
+  contact:
+    name: Webalytics
+    url: https://github.com/webalytics/webalytics
+  license:
+    name: TBD
+
+servers:
+  - url: https://analytics.example.com
+    description: Your self-hosted deployment
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Ingest
+    description: Public ingest endpoint used by the JS tracker
+  - name: Sites
+    description: Manage tracked sites
+  - name: Domains
+    description: Manage the registered domains of a site
+  - name: Events
+    description: Register and manage named custom events
+  - name: Tokens
+    description: Mint and revoke API tokens
+  - name: Stats
+    description: Read-only analytics queries
+  - name: Export
+    description: Raw and aggregated exports
+
+paths:
+  /collect:
+    post:
+      tags: [Ingest]
+      summary: Accept a pageview or custom event from the browser
+      description: |
+        Unauthenticated ingest endpoint. The canonical request body is defined
+        by `api/collect.schema.json`. The server validates the site's domain
+        allowlist using `Origin` (preferred) or `Referer` and responds `204`
+        regardless of accept/drop to avoid leaking throttling behavior to
+        scrapers.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectEvent'
+      responses:
+        '204':
+          description: Accepted (or silently dropped)
+          headers:
+            X-Webalytics-Debug:
+              description: Present only when `?debug=1` is passed; reason code
+              schema: { type: string }
+
+  /v1/sites:
+    get:
+      tags: [Sites]
+      summary: List sites in the caller's organization
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteList'
+    post:
+      tags: [Sites]
+      summary: Create a site
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Site' }
+
+  /v1/sites/{siteId}:
+    parameters: [{ $ref: '#/components/parameters/SiteId' }]
+    get:
+      tags: [Sites]
+      summary: Get a single site
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Site' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Sites]
+      summary: Update a site (partial)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SiteUpdate' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Site' }
+    delete:
+      tags: [Sites]
+      summary: Soft-delete a site
+      responses:
+        '204': { description: Deleted }
+
+  /v1/sites/{siteId}/domains:
+    parameters: [{ $ref: '#/components/parameters/SiteId' }]
+    get:
+      tags: [Domains]
+      summary: List registered domains for a site
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Domain' }
+    post:
+      tags: [Domains]
+      summary: Register a domain
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hostname]
+              properties:
+                hostname:
+                  type: string
+                  example: www.example.com
+                is_primary:
+                  type: boolean
+                  default: false
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Domain' }
+
+  /v1/sites/{siteId}/domains/{domainId}:
+    parameters:
+      - { $ref: '#/components/parameters/SiteId' }
+      - { $ref: '#/components/parameters/DomainId' }
+    delete:
+      tags: [Domains]
+      summary: Remove a domain from a site
+      responses:
+        '204': { description: Removed }
+
+  /v1/sites/{siteId}/event-definitions:
+    parameters: [{ $ref: '#/components/parameters/SiteId' }]
+    get:
+      tags: [Events]
+      summary: List registered custom events
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/EventDefinition' }
+    post:
+      tags: [Events]
+      summary: Register a custom event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EventDefinitionCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EventDefinition' }
+
+  /v1/sites/{siteId}/event-definitions/{eventName}:
+    parameters:
+      - { $ref: '#/components/parameters/SiteId' }
+      - in: path
+        name: eventName
+        required: true
+        schema: { type: string }
+    patch:
+      tags: [Events]
+      summary: Update an event definition (e.g. toggle goal status)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description: { type: string }
+                schema:
+                  type: object
+                  description: JSON Schema for event props
+                is_goal: { type: boolean }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EventDefinition' }
+    delete:
+      tags: [Events]
+      summary: Remove an event definition
+      responses:
+        '204': { description: Deleted }
+
+  /v1/tokens:
+    get:
+      tags: [Tokens]
+      summary: List API tokens
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ApiToken' }
+    post:
+      tags: [Tokens]
+      summary: Create a new API token
+      description: The raw `token` value is returned exactly once here and never retrievable again.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApiTokenCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiTokenCreated' }
+
+  /v1/tokens/{tokenId}:
+    parameters:
+      - in: path
+        name: tokenId
+        required: true
+        schema: { type: string, format: uuid }
+    delete:
+      tags: [Tokens]
+      summary: Revoke a token
+      responses:
+        '204': { description: Revoked }
+
+  # --------------------------------------------------------------------------
+  # Stats
+  # --------------------------------------------------------------------------
+
+  /v1/sites/{siteId}/stats/summary:
+    parameters:
+      - { $ref: '#/components/parameters/SiteId' }
+      - { $ref: '#/components/parameters/From' }
+      - { $ref: '#/components/parameters/To' }
+      - { $ref: '#/components/parameters/Compare' }
+      - { $ref: '#/components/parameters/FilterHostname' }
+      - { $ref: '#/components/parameters/FilterPath' }
+      - { $ref: '#/components/parameters/FilterRoute' }
+      - { $ref: '#/components/parameters/FilterReferrerHost' }
+      - { $ref: '#/components/parameters/FilterUtmSource' }
+      - { $ref: '#/components/parameters/FilterCountry' }
+      - { $ref: '#/components/parameters/FilterDeviceType' }
+      - { $ref: '#/components/parameters/FilterBrowser' }
+      - { $ref: '#/components/parameters/FilterOS' }
+      - { $ref: '#/components/parameters/FilterEnvironment' }
+      - { $ref: '#/components/parameters/FilterEvent' }
+    get:
+      tags: [Stats]
+      summary: Top-line metrics for a window, with period-over-period comparison
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SummaryResponse' }
+
+  /v1/sites/{siteId}/stats/timeseries:
+    parameters:
+      - { $ref: '#/components/parameters/SiteId' }
+      - { $ref: '#/components/parameters/From' }
+      - { $ref: '#/components/parameters/To' }
+      - { $ref: '#/components/parameters/Compare' }
+      - in: query
+        name: metric
+        required: true
+        schema: { $ref: '#/components/schemas/MetricName' }
+      - in: query
+        name: interval
+        required: true
+        schema:
+          type: string
+          enum: [minute, hour, day, week, month]
+      - { $ref: '#/components/parameters/FilterHostname' }
+      - { $ref: '#/components/parameters/FilterPath' }
+      - { $ref: '#/components/parameters/FilterRoute' }
+      - { $ref: '#/components/parameters/FilterReferrerHost' }
+      - { $ref: '#/components/parameters/FilterUtmSource' }
+      - { $ref: '#/components/parameters/FilterCountry' }
+      - { $ref: '#/components/parameters/FilterDeviceType' }
+      - { $ref: '#/components/parameters/FilterBrowser' }
+      - { $ref: '#/components/parameters/FilterOS' }
+      - { $ref: '#/components/parameters/FilterEnvironment' }
+      - { $ref: '#/components/parameters/FilterEvent' }
+    get:
+      tags: [Stats]
+      summary: A single metric over time at a chosen interval
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimeseriesResponse' }
+
+  /v1/sites/{siteId}/stats/breakdown:
+    parameters:
+      - { $ref: '#/components/parameters/SiteId' }
+      - { $ref: '#/components/parameters/From' }
+      - { $ref: '#/components/parameters/To' }
+      - in: query
+        name: dimension
+        required: true
+        schema: { $ref: '#/components/schemas/DimensionName' }
+      - in: query
+        name: metric
+        schema: { $ref: '#/components/schemas/MetricName' }
+        description: Metric to rank by (default `visitors`)
+      - { $ref: '#/components/parameters/Limit' }
+      - { $ref: '#/components/parameters/Offset' }
+      - { $ref: '#/components/parameters/FilterHostname' }
+      - { $ref: '#/components/parameters/FilterPath' }
+      - { $ref: '#/components/parameters/FilterRoute' }
+      - { $ref: '#/components/parameters/FilterReferrerHost' }
+      - { $ref: '#/components/parameters/FilterUtmSource' }
+      - { $ref: '#/components/parameters/FilterCountry' }
+      - { $ref: '#/components/parameters/FilterDeviceType' }
+      - { $ref: '#/components/parameters/FilterBrowser' }
+      - { $ref: '#/components/parameters/FilterOS' }
+      - { $ref: '#/components/parameters/FilterEnvironment' }
+      - { $ref: '#/components/parameters/FilterEvent' }
+    get:
+      tags: [Stats]
+      summary: Group-by on any supported dimension
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BreakdownResponse' }
+
+  /v1/sites/{siteId}/stats/funnel:
+    parameters:
+      - { $ref: '#/components/parameters/SiteId' }
+      - { $ref: '#/components/parameters/From' }
+      - { $ref: '#/components/parameters/To' }
+    post:
+      tags: [Stats]
+      summary: Ordered funnel over a sequence of events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FunnelRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FunnelResponse' }
+
+  /v1/sites/{siteId}/stats/retention:
+    parameters:
+      - { $ref: '#/components/parameters/SiteId' }
+      - { $ref: '#/components/parameters/From' }
+      - { $ref: '#/components/parameters/To' }
+      - in: query
+        name: cohort_interval
+        schema: { type: string, enum: [day, week, month], default: week }
+    get:
+      tags: [Stats]
+      summary: Cohort retention matrix
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RetentionResponse' }
+
+  /v1/sites/{siteId}/stats/web-vitals:
+    parameters:
+      - { $ref: '#/components/parameters/SiteId' }
+      - { $ref: '#/components/parameters/From' }
+      - { $ref: '#/components/parameters/To' }
+      - in: query
+        name: group_by
+        schema:
+          type: string
+          enum: [none, hostname, route, path]
+          default: none
+      - { $ref: '#/components/parameters/FilterHostname' }
+      - { $ref: '#/components/parameters/FilterPath' }
+      - { $ref: '#/components/parameters/FilterRoute' }
+    get:
+      tags: [Stats]
+      summary: p75/p95 distributions of Core Web Vitals
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebVitalsResponse' }
+
+  /v1/sites/{siteId}/stats/realtime:
+    parameters: [{ $ref: '#/components/parameters/SiteId' }]
+    get:
+      tags: [Stats]
+      summary: Visitors online in the last 5 minutes
+      description: |
+        Short-window count of unique session IDs seen in the last 5 minutes,
+        plus the most recent pageviews and active hostnames/routes.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RealtimeResponse' }
+
+  /v1/sites/{siteId}/audiences/export:
+    parameters:
+      - { $ref: '#/components/parameters/SiteId' }
+      - { $ref: '#/components/parameters/From' }
+      - { $ref: '#/components/parameters/To' }
+      - in: query
+        name: format
+        schema: { type: string, enum: [csv, google_customer_match, meta_custom_audience], default: csv }
+      - in: query
+        name: event
+        schema: { type: string }
+        description: Restrict audience to sessions that fired this event
+    get:
+      tags: [Export]
+      summary: Aggregate cohort export for ad-platform upload
+      description: |
+        Produces a CSV of hashed cohort signals suitable for ad-platform
+        custom-audience uploads. The export deliberately avoids anything
+        individually identifying.
+      responses:
+        '200':
+          description: OK
+          content:
+            text/csv:
+              schema: { type: string }
+
+  /v1/export/events.ndjson:
+    parameters:
+      - { $ref: '#/components/parameters/From' }
+      - { $ref: '#/components/parameters/To' }
+      - in: query
+        name: site_id
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Export]
+      summary: Raw event export (admin only)
+      description: Streaming NDJSON. Requires `admin:export` scope.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/x-ndjson:
+              schema: { type: string }
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: webalytics_api_token
+
+  parameters:
+    SiteId:
+      in: path
+      name: siteId
+      required: true
+      schema: { type: string, format: uuid }
+    DomainId:
+      in: path
+      name: domainId
+      required: true
+      schema: { type: string, format: uuid }
+    Limit:
+      in: query
+      name: limit
+      schema: { type: integer, minimum: 1, maximum: 1000, default: 100 }
+    Offset:
+      in: query
+      name: offset
+      schema: { type: integer, minimum: 0, default: 0 }
+    From:
+      in: query
+      name: from
+      required: true
+      schema: { type: string, format: date-time }
+      description: Inclusive start of window (ISO 8601)
+    To:
+      in: query
+      name: to
+      required: true
+      schema: { type: string, format: date-time }
+      description: Exclusive end of window (ISO 8601)
+    Compare:
+      in: query
+      name: compare
+      schema:
+        type: string
+        enum: [none, previous_period, previous_year]
+        default: none
+    FilterHostname:
+      in: query
+      name: hostname
+      schema: { type: array, items: { type: string } }
+      style: form
+      explode: true
+    FilterPath:
+      in: query
+      name: path
+      schema: { type: array, items: { type: string } }
+      description: Exact path or glob (`/blog/*`)
+      style: form
+      explode: true
+    FilterRoute:
+      in: query
+      name: route
+      schema: { type: array, items: { type: string } }
+      style: form
+      explode: true
+    FilterReferrerHost:
+      in: query
+      name: referrer_host
+      schema: { type: array, items: { type: string } }
+      style: form
+      explode: true
+    FilterUtmSource:
+      in: query
+      name: utm_source
+      schema: { type: array, items: { type: string } }
+      style: form
+      explode: true
+    FilterCountry:
+      in: query
+      name: country
+      schema: { type: array, items: { type: string, minLength: 2, maxLength: 2 } }
+      style: form
+      explode: true
+    FilterDeviceType:
+      in: query
+      name: device_type
+      schema:
+        type: array
+        items: { type: string, enum: [desktop, mobile, tablet, bot] }
+      style: form
+      explode: true
+    FilterBrowser:
+      in: query
+      name: browser
+      schema: { type: array, items: { type: string } }
+      style: form
+      explode: true
+    FilterOS:
+      in: query
+      name: os
+      schema: { type: array, items: { type: string } }
+      style: form
+      explode: true
+    FilterEnvironment:
+      in: query
+      name: environment
+      schema: { type: array, items: { type: string } }
+      style: form
+      explode: true
+    FilterEvent:
+      in: query
+      name: event
+      schema: { type: array, items: { type: string } }
+      description: Restrict to sessions that fired any of these event names
+      style: form
+      explode: true
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    BadRequest:
+      description: Validation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Token lacks required scope
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, example: validation_failed }
+            message: { type: string }
+            details:
+              type: object
+              additionalProperties: true
+
+    # --- Sites ---------------------------------------------------------------
+    Site:
+      type: object
+      required: [id, organization_id, public_site_id, name, timezone, retention_days, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        organization_id: { type: string, format: uuid }
+        public_site_id:
+          type: string
+          description: The site ID embedded in the tracker snippet
+          example: wb_live_7f2a3b4c5d6e7f80
+        name: { type: string, example: Marketing Site }
+        timezone: { type: string, example: America/New_York }
+        retention_days: { type: integer, example: 365 }
+        settings:
+          type: object
+          additionalProperties: true
+        created_at: { type: string, format: date-time }
+
+    SiteCreate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        timezone: { type: string, default: UTC }
+        retention_days: { type: integer, default: 365 }
+
+    SiteUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        timezone: { type: string }
+        retention_days: { type: integer }
+        settings:
+          type: object
+          additionalProperties: true
+
+    SiteList:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Site' }
+        total: { type: integer }
+
+    # --- Domains -------------------------------------------------------------
+    Domain:
+      type: object
+      required: [id, site_id, hostname, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        site_id: { type: string, format: uuid }
+        hostname: { type: string, example: www.example.com }
+        is_primary: { type: boolean }
+        verified_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    # --- Events --------------------------------------------------------------
+    EventDefinition:
+      type: object
+      required: [id, site_id, name, is_goal, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        site_id: { type: string, format: uuid }
+        name: { type: string, example: signup }
+        description: { type: string }
+        schema:
+          type: object
+          description: Optional JSON Schema validating the event's `props`
+        is_goal:
+          type: boolean
+          description: Counts toward the site's conversion-rate metric when true
+        created_at: { type: string, format: date-time }
+
+    EventDefinitionCreate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        schema:
+          type: object
+          additionalProperties: true
+        is_goal: { type: boolean, default: false }
+
+    # --- Tokens --------------------------------------------------------------
+    ApiToken:
+      type: object
+      required: [id, name, scopes, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        site_id: { type: string, format: uuid, nullable: true }
+        scopes:
+          type: array
+          items:
+            type: string
+            enum: [read:events, read:sites, write:sites, write:events, admin:export, admin:tokens]
+        last_used_at: { type: string, format: date-time, nullable: true }
+        expires_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    ApiTokenCreate:
+      type: object
+      required: [name, scopes]
+      properties:
+        name: { type: string }
+        site_id: { type: string, format: uuid }
+        scopes:
+          type: array
+          items:
+            type: string
+            enum: [read:events, read:sites, write:sites, write:events, admin:export, admin:tokens]
+        expires_at: { type: string, format: date-time }
+
+    ApiTokenCreated:
+      allOf:
+        - $ref: '#/components/schemas/ApiToken'
+        - type: object
+          required: [token]
+          properties:
+            token:
+              type: string
+              description: The raw bearer token. Shown exactly once.
+              example: wb_pat_live_2a4f...
+
+    # --- Metrics / Dimensions -----------------------------------------------
+    MetricName:
+      type: string
+      enum:
+        - visitors
+        - pageviews
+        - sessions
+        - views_per_visitor
+        - bounce_rate
+        - avg_session_s
+        - engaged_sessions
+        - goal_completions
+        - conversion_rate
+        - revenue
+        - revenue_per_visitor
+
+    DimensionName:
+      type: string
+      enum:
+        - hostname
+        - path
+        - route
+        - referrer_host
+        - utm_source
+        - utm_medium
+        - utm_campaign
+        - country
+        - region
+        - city
+        - device_type
+        - browser
+        - os
+        - language
+        - event_name
+        - environment
+        - release
+
+    # --- Stats responses ----------------------------------------------------
+    MetricValueWithDelta:
+      type: object
+      required: [value]
+      properties:
+        value:
+          type: number
+          description: The primary-window value
+        previous:
+          type: number
+          nullable: true
+          description: The comparison-window value (only when `compare` is set)
+        change_pct:
+          type: number
+          nullable: true
+          description: (value - previous) / previous * 100
+
+    SummaryResponse:
+      type: object
+      required: [window, metrics]
+      properties:
+        window:
+          $ref: '#/components/schemas/TimeWindow'
+        metrics:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/MetricValueWithDelta'
+          description: Keyed by metric name
+
+    TimeWindow:
+      type: object
+      required: [from, to]
+      properties:
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        compare:
+          type: object
+          nullable: true
+          required: [from, to]
+          properties:
+            from: { type: string, format: date-time }
+            to: { type: string, format: date-time }
+
+    TimeseriesResponse:
+      type: object
+      required: [window, metric, interval, points]
+      properties:
+        window: { $ref: '#/components/schemas/TimeWindow' }
+        metric: { $ref: '#/components/schemas/MetricName' }
+        interval: { type: string }
+        points:
+          type: array
+          items:
+            type: object
+            required: [bucket, value]
+            properties:
+              bucket: { type: string, format: date-time }
+              value: { type: number }
+              previous: { type: number, nullable: true }
+
+    BreakdownResponse:
+      type: object
+      required: [window, dimension, metric, results, total_other]
+      properties:
+        window: { $ref: '#/components/schemas/TimeWindow' }
+        dimension: { $ref: '#/components/schemas/DimensionName' }
+        metric: { $ref: '#/components/schemas/MetricName' }
+        results:
+          type: array
+          items:
+            type: object
+            required: [key, value]
+            properties:
+              key: { type: string }
+              value: { type: number }
+              share: { type: number, description: Row share of the window total }
+        total_other:
+          type: number
+          description: Metric value aggregated across all keys not returned by this page
+        total:
+          type: number
+
+    FunnelRequest:
+      type: object
+      required: [steps]
+      properties:
+        steps:
+          type: array
+          minItems: 2
+          items:
+            type: object
+            required: [event]
+            properties:
+              event: { type: string }
+              label: { type: string }
+              filter:
+                type: object
+                additionalProperties: true
+        window_s:
+          type: integer
+          description: Max elapsed seconds across all steps (default 86400)
+
+    FunnelResponse:
+      type: object
+      required: [window, steps]
+      properties:
+        window: { $ref: '#/components/schemas/TimeWindow' }
+        steps:
+          type: array
+          items:
+            type: object
+            required: [event, visitors, conversion_from_start, conversion_from_prev]
+            properties:
+              event: { type: string }
+              label: { type: string }
+              visitors: { type: integer }
+              conversion_from_start: { type: number }
+              conversion_from_prev: { type: number }
+
+    RetentionResponse:
+      type: object
+      required: [window, cohort_interval, cohorts]
+      properties:
+        window: { $ref: '#/components/schemas/TimeWindow' }
+        cohort_interval: { type: string }
+        cohorts:
+          type: array
+          items:
+            type: object
+            required: [bucket, size, retained]
+            properties:
+              bucket: { type: string, format: date-time }
+              size: { type: integer }
+              retained:
+                type: array
+                description: Visitor counts retained in each subsequent bucket, index 0 = bucket itself
+                items: { type: integer }
+
+    WebVitalsResponse:
+      type: object
+      required: [window, group_by, groups]
+      properties:
+        window: { $ref: '#/components/schemas/TimeWindow' }
+        group_by: { type: string }
+        groups:
+          type: array
+          items:
+            type: object
+            required: [key, metrics]
+            properties:
+              key: { type: string, description: "Empty string when group_by=none" }
+              metrics:
+                type: object
+                properties:
+                  LCP:  { $ref: '#/components/schemas/VitalDistribution' }
+                  INP:  { $ref: '#/components/schemas/VitalDistribution' }
+                  CLS:  { $ref: '#/components/schemas/VitalDistribution' }
+                  FCP:  { $ref: '#/components/schemas/VitalDistribution' }
+                  TTFB: { $ref: '#/components/schemas/VitalDistribution' }
+
+    VitalDistribution:
+      type: object
+      required: [samples, p75, p95, rating_pct]
+      properties:
+        samples: { type: integer }
+        p75: { type: number, description: "ms (unitless for CLS)" }
+        p95: { type: number }
+        rating_pct:
+          type: object
+          required: [good, needs_improvement, poor]
+          properties:
+            good: { type: number }
+            needs_improvement: { type: number }
+            poor: { type: number }
+
+    RealtimeResponse:
+      type: object
+      required: [online, top_pages, top_hostnames, recent]
+      properties:
+        online:
+          type: integer
+          description: Unique sessions seen in the last 5 minutes
+        top_pages:
+          type: array
+          items:
+            type: object
+            required: [path, visitors]
+            properties:
+              path: { type: string }
+              visitors: { type: integer }
+        top_hostnames:
+          type: array
+          items:
+            type: object
+            required: [hostname, visitors]
+            properties:
+              hostname: { type: string }
+              visitors: { type: integer }
+        recent:
+          type: array
+          description: Most recent pageviews (last 100)
+          items:
+            type: object
+            required: [ts, hostname, path]
+            properties:
+              ts: { type: string, format: date-time }
+              hostname: { type: string }
+              path: { type: string }
+              country: { type: string }
+              referrer_host: { type: string }
+
+    # --- Ingest event (mirrors collect.schema.json) --------------------------
+    CollectEvent:
+      type: object
+      required: [site_id, event, url]
+      description: |
+        Canonical shape of a `/collect` request body. See `api/collect.schema.json`
+        for the authoritative JSON Schema with full validation constraints.
+      properties:
+        site_id: { type: string, example: wb_live_7f2a3b4c5d6e7f80 }
+        event: { type: string, example: pageview }
+        url: { type: string, format: uri }
+        referrer: { type: string, format: uri }
+        title: { type: string }
+        environment: { type: string }
+        release: { type: string }
+        route: { type: string, example: "/blog/[slug]" }
+        screen:
+          type: object
+          properties:
+            w: { type: integer }
+            h: { type: integer }
+        viewport:
+          type: object
+          properties:
+            w: { type: integer }
+            h: { type: integer }
+        language: { type: string }
+        props:
+          type: object
+          additionalProperties: true
+        revenue:
+          type: object
+          properties:
+            amount: { type: number }
+            currency: { type: string }
+        perf:
+          type: object
+          properties:
+            ttfb_ms: { type: integer }
+            load_ms: { type: integer }
+        vital:
+          type: object
+          description: Present only when `event` = "web_vital"
+          properties:
+            name: { type: string, enum: [LCP, INP, CLS, FCP, TTFB] }
+            value: { type: number }
+            rating: { type: string, enum: [good, needs-improvement, poor] }
+            id: { type: string }
+        ts_client:
+          type: integer
+          description: Client epoch ms (used to compute skew; server stamps authoritative ts)
