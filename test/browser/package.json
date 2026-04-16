@@ -1,0 +1,14 @@
+{
+  "name": "webalytics-browser-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Playwright browser tests against the running demo-next app. Assumes `make up-demo && make seed` has been executed.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "install-browsers": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.0"
+  }
+}

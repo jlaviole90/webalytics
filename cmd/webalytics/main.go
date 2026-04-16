@@ -139,6 +139,13 @@ func run() error {
 		}))
 		r.Post("/collect", collectHandler)
 		r.Get("/collect", collectHandler) // fallback for beacon-GET
+		// Chi's router returns 405 for un-registered methods before middleware
+		// runs, so we need an explicit OPTIONS handler for the cors middleware
+		// to intercept preflight requests. The body never executes — cors
+		// writes the 204 preflight response itself.
+		r.Options("/collect", func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		})
 	})
 
 	// /v1 authenticated surface

@@ -1,1 +1,17 @@
+# Node / JS
 node_modules/
+dist/
+.next/
+*.tsbuildinfo
+.turbo/
+coverage/
+
+# Seed artifacts / local env
+deploy/.seeded.env
+.env
+.env.local
+
+# Playwright
+test/browser/test-results/
+test/browser/playwright-report/
+test/browser/node_modules/

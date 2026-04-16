@@ -109,6 +109,25 @@ services:
     ports:
       - "8080:8080"
 
+  demo-next:
+    # Next.js dogfood app — imports @webalytics/tracker-next and POSTs
+    # pageviews/events at the api container. Opt-in; use `--profile demo`
+    # (or `make demo-up`) so the core stack stays lean.
+    profiles: ["demo"]
+    build:
+      context: .
+      dockerfile: apps/demo-next/Dockerfile
+      args:
+        # The Go seed script uses the same stable id so pageviews land on a
+        # real site the moment the stack starts.
+        NEXT_PUBLIC_WEBALYTICS_SITE_ID: ${NEXT_PUBLIC_WEBALYTICS_SITE_ID:-wb_live_seedseedseedseed}
+        NEXT_PUBLIC_WEBALYTICS_HOST: ${NEXT_PUBLIC_WEBALYTICS_HOST:-http://localhost:8080}
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_started
+
 volumes:
   pg_data:
   ch_data:

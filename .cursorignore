@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.next/
+.turbo/
+coverage/
+test/browser/test-results/
+test/browser/playwright-report/

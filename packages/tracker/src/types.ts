@@ -1,133 +1,75 @@
-/**
- * @webalytics/tracker — public types
- *
- * This file is the authoritative TypeScript surface of the NPM SDK.
- * It is hand-maintained to stay in lockstep with:
- *   - api/collect.schema.json   (ingest payload)
- *   - api/openapi.yaml          (query API)
- *
- * A generator will eventually derive these types from the JSON Schema; until
- * then, any additions here MUST be reflected in the schema and vice versa.
- */
+// Types used throughout the tracker. The ingest-wire shape lives in
+// `CollectPayload` which mirrors api/collect.schema.json in the Go repo.
 
-// ---------------------------------------------------------------------------
-// init() config
-// ---------------------------------------------------------------------------
-
-export interface TrackerConfig {
-  /** Public site ID, e.g. `wb_live_7f2a3b4c5d6e7f80`. Not a secret. */
+export interface InitConfig {
+  /** Public site id, e.g. wb_live_abc123... */
   siteId: string;
-
-  /** Base URL of the self-hosted Webalytics service, without trailing slash. */
+  /** Base URL of the ingest service (no trailing slash). */
   host: string;
-
-  /** Automatically track pageviews on init + History API navigations. Default: true. */
+  /** Fire a pageview on init and on History API navigation. Default: true. */
   autoPageviews?: boolean;
-
-  /** Automatically report LCP / INP / CLS / FCP / TTFB via web-vitals. Default: true. */
+  /** Collect LCP/INP/CLS/FCP/TTFB and send as web_vital events. Default: true. */
   autoWebVitals?: boolean;
-
-  /** Automatically track outbound link clicks and file downloads. Default: false. */
+  /** Track outbound link clicks as `outbound_click` events. Default: false. */
   autoOutbound?: boolean;
-
-  /** Honor Do-Not-Track and Global Privacy Control headers. Default: true. */
+  /** Respect DNT / Sec-GPC headers (server also honors them). Default: true. */
   respectDNT?: boolean;
-
-  /** Paths (exact strings or RegExp) for which pageviews should not be sent. */
+  /** URL paths (string-prefix or regex) that should never generate events. */
   excludePaths?: (string | RegExp)[];
-
-  /**
-   * Deployment environment tag. Becomes a top-level dimension so dashboards
-   * can filter e.g. 'production' vs 'preview'. Default: 'production'.
-   */
+  /** Environment tag stored on every event. Default: 'production'. */
   environment?: string;
-
-  /** Release identifier (git SHA, semver, etc.) — enables release-over-release comparisons. */
+  /** Release tag (e.g. git sha) stored on every event. */
   release?: string;
-
   /**
-   * Optional hook returning the normalized route for the current page
-   * (e.g. `/blog/[slug]`). Frameworks like Next.js / Remix can supply this
-   * from their router; plain HTML sites can leave it undefined.
+   * Returns the normalized route for the current URL (e.g. `/blog/[slug]`).
+   * Used by frameworks with client-side routing.
    */
   route?: () => string | null;
-
-  /** Log diagnostic info to the console. Default: false. */
+  /** Log reject reasons and errors to console.debug. Default: false. */
   debug?: boolean;
+  /** Override fetch/sendBeacon — exposed for tests. */
+  transport?: Transport;
+  /** Injectable for tests. Defaults to the global History/location. */
+  readonly _location?: Location;
 }
 
-// ---------------------------------------------------------------------------
-// Tracker public API
-// ---------------------------------------------------------------------------
-
 export interface Tracker {
-  /** Manually fire a pageview. `url` defaults to `location.href`. */
   pageview(url?: string): void;
-
-  /** Fire a named custom event with optional properties. */
-  track(eventName: string, props?: EventProps): void;
-
-  /**
-   * Associate the current visitor with long-lived traits.
-   * NO-OP unless the site is opted into consented mode.
-   */
+  track(eventName: string, props?: Record<string, unknown>): void;
+  /** Promoted-identity API. No-op in cookieless default mode. */
   identify(traits: Record<string, unknown>): void;
-
-  /** Drain any buffered events immediately. Returns when the flush finishes. */
+  /** Flush any buffered events immediately. Resolves when writes complete. */
   flush(): Promise<void>;
-
-  /** Enable or disable tracking at runtime. */
+  /** Temporarily disable/enable event collection. */
   setEnabled(enabled: boolean): void;
 }
 
-/** Scalar-valued custom event properties (nested objects/arrays are not allowed). */
-export type EventProps = Record<string, string | number | boolean | null>;
-
-// ---------------------------------------------------------------------------
-// Wire types (sent to POST /collect — match api/collect.schema.json)
-// ---------------------------------------------------------------------------
-
-export interface CollectEvent {
+export interface CollectPayload {
   site_id: string;
   event: string;
   url: string;
-
   referrer?: string;
   title?: string;
-
   environment?: string;
   release?: string;
   route?: string;
-
   screen?: { w: number; h: number };
   viewport?: { w: number; h: number };
   language?: string;
-
-  props?: EventProps;
+  props?: Record<string, unknown>;
   revenue?: { amount: number; currency: string };
   perf?: { ttfb_ms?: number; load_ms?: number };
-
-  /** Present only when `event === 'web_vital'`. */
-  vital?: {
-    name: "LCP" | "INP" | "CLS" | "FCP" | "TTFB";
-    value: number;
-    rating?: "good" | "needs-improvement" | "poor";
-    id?: string;
-    nav_type?:
-      | "navigate"
-      | "reload"
-      | "back-forward"
-      | "back-forward-cache"
-      | "prerender"
-      | "restore";
-  };
-
+  vital?: { name: string; value: number; rating?: string; id?: string; nav_type?: string };
   ts_client?: number;
 }
 
-// ---------------------------------------------------------------------------
-// Factory
-// ---------------------------------------------------------------------------
-
-/** Create a Tracker instance. Also installs auto-handlers if enabled. */
-export declare function init(config: TrackerConfig): Tracker;
+export interface Transport {
+  /**
+   * Send one or more events. Implementations must be non-blocking and must
+   * never throw into caller code.
+   * `unload` indicates we're on pagehide — transport should prefer sendBeacon.
+   */
+  send(host: string, events: CollectPayload[], unload: boolean): void;
+  /** Flush any in-flight writes; resolves when settled. */
+  flush(): Promise<void>;
+}

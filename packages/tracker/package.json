@@ -1,0 +1,45 @@
+{
+  "name": "@webalytics/tracker",
+  "version": "0.1.0",
+  "description": "Webalytics browser tracker. Zero-dep, cookieless by default, <2KB gzipped core.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "unpkg": "./dist/tracker.umd.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./umd": "./dist/tracker.umd.js"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "size": "npm run build && node scripts/size-check.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.12",
+    "happy-dom": "^14.12.3",
+    "tsup": "^8.2.4",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  },
+  "sideEffects": [
+    "./src/umd.ts",
+    "./dist/tracker.umd.js"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}
