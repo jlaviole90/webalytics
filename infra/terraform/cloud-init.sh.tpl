@@ -1,9 +1,16 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # cloud-init / user_data for the webalytics Lightsail instance.
 #
 # Bootstraps: Docker, Compose v2, the project checkout, and a systemd
 # unit that brings the stack up on every boot. Idempotent: re-running
 # (e.g. via `sudo bash /var/lib/cloud/instance/user-data.txt`) is safe.
+#
+# Note: Lightsail runs user_data scripts via /bin/sh (dash) despite the
+# shebang. We re-exec under bash explicitly so bashisms like `pipefail`
+# and brace expansion work.
+if [ -z "$BASH_VERSION" ]; then
+	exec /bin/bash "$0" "$@"
+fi
 
 set -euxo pipefail
 
@@ -92,8 +99,8 @@ User=ubuntu
 Group=docker
 WorkingDirectory=/opt/webalytics
 EnvironmentFile=/opt/webalytics/.env.prod
-ExecStart=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-ExecStop=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.prod.yml down
+ExecStart=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile prod up -d --build
+ExecStop=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile prod down
 TimeoutStartSec=600
 
 [Install]

@@ -39,8 +39,11 @@ services:
       INGEST_BATCH_FLUSH_MS: 250ms
 
   dashboard-next:
-    # Opt-in via `--profile demo` in local dev; in prod we always want it up.
-    profiles: []
+    # Base compose has profiles: ["demo"] for local; override appends
+    # "prod" so `--profile prod` enables it. Compose merges list values
+    # rather than replacing, so `profiles: []` here wouldn't actually
+    # unset the demo profile — hence the dedicated prod profile.
+    profiles: ["prod"]
     ports: []
     environment:
       WEBALYTICS_API_HOST: http://api:8080
@@ -51,6 +54,8 @@ services:
         condition: service_started
 
   caddy:
+    # Only spin up in prod; local dev hits api/dashboard directly.
+    profiles: ["prod"]
     image: caddy:2-alpine
     restart: unless-stopped
     ports:
