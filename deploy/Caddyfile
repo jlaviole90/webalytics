@@ -1,8 +1,9 @@
 # Caddyfile for production.
 #
-# Behavior is driven by the DOMAIN env var:
-#   - unset or empty  -> HTTP only on :80 (works on bare IP)
-#   - set (e.g. analytics.example.com) -> auto HTTPS via Let's Encrypt
+# Env vars (set by docker-compose.prod.yml from /opt/webalytics/.env.prod):
+#   DOMAIN      - required. Either your own hostname or <ip>.nip.io.
+#                 Triggers automatic HTTPS via Let's Encrypt.
+#   ACME_EMAIL  - optional. Tells LE where to send expiry warnings.
 #
 # Routes:
 #   /collect, /collect/**          -> Go api (tracker ingest)
@@ -10,19 +11,23 @@
 #   /healthz                       -> Go api (health)
 #   everything else                -> Next.js dashboard
 #
-# We never expose postgres/clickhouse/redis — they live on the internal
-# docker network only.
+# Postgres/ClickHouse/Redis live on the internal docker network only and
+# are never exposed by Caddy.
 
-# The first token is the site address. Caddy treats :80 as "HTTP on all
-# hosts, no auto-cert"; a bare hostname triggers automatic HTTPS.
-{$DOMAIN::80} {
+# Global options: ACME account email for Let's Encrypt.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
 	encode gzip zstd
 
-	# Security headers. Kept minimal since the dashboard is single-origin.
+	# Minimal security headers for a single-origin dashboard.
 	header {
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options        "SAMEORIGIN"
 		Referrer-Policy        "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		-Server
 	}
 

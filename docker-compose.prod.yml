@@ -62,10 +62,11 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     environment:
-      # Unset => Caddy listens on :80 only (no auto HTTPS).
-      # Set to your hostname (e.g. analytics.example.com) to trigger Let's
-      # Encrypt. Caddy will restart and get a real cert automatically.
-      DOMAIN: ${DOMAIN:-}
+      # Required. Either your own hostname or <ip>.nip.io. Caddy auto-
+      # HTTPSes the site and redirects :80 -> :443 for you.
+      DOMAIN: ${DOMAIN:?DOMAIN is required in prod}
+      # Optional Let's Encrypt account email for expiry warnings.
+      ACME_EMAIL: ${ACME_EMAIL:-}
     depends_on:
       api:
         condition: service_started

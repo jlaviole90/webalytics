@@ -11,6 +11,7 @@ PROJECT="${project}"
 REPO_URL="${git_repo_url}"
 BRANCH="${git_branch}"
 DOMAIN_VAR="${domain}"
+ACME_EMAIL_VAR="${acme_email}"
 APP_DIR="/opt/$PROJECT"
 ENV_FILE="$APP_DIR/.env.prod"
 
@@ -67,7 +68,11 @@ SESSION_SALT_BASE=$SESSION_SALT_BASE
 CLICKHOUSE_PASSWORD=$CLICKHOUSE_PASSWORD
 CLICKHOUSE_USER=webalytics
 CLICKHOUSE_DATABASE=webalytics
+# Hostname Caddy serves with real HTTPS via Let's Encrypt. Swap in
+# your own domain (point DNS at the static IP first) and restart
+# the webalytics.service unit; Caddy will re-provision the cert.
 DOMAIN=$DOMAIN_VAR
+ACME_EMAIL=$ACME_EMAIL_VAR
 EOF
   chown ubuntu:ubuntu "$ENV_FILE"
   chmod 600 "$ENV_FILE"

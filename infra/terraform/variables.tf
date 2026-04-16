@@ -69,10 +69,22 @@ variable "git_branch" {
 
 variable "domain" {
   description = <<EOT
-Hostname the deploy should serve. Empty string = serve on the bare
-IP over plain HTTP. Setting this (e.g. analytics.example.com) flips
-Caddy into auto-Let's-Encrypt mode on the next redeploy; you still
-have to point DNS at the static IP output by Terraform yourself.
+Hostname the deploy should serve with real HTTPS. Leave empty to get
+an automatic <ip>.nip.io stand-in (Caddy gets a real Let's Encrypt
+cert for it, zero DNS setup required). Set to your own hostname
+(e.g. analytics.example.com) and point an A record at the static IP
+output to use your domain instead. Swapping later is a one-env-var
+change on the box; no Terraform recreate.
+EOT
+  type        = string
+  default     = ""
+}
+
+variable "acme_email" {
+  description = <<EOT
+Email Caddy sends to Let's Encrypt when requesting certificates. LE
+uses it for expiry warnings and policy notices. Leave empty and Caddy
+will still work but LE won't be able to notify you of issues.
 EOT
   type        = string
   default     = ""

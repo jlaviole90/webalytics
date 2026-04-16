@@ -1,6 +1,11 @@
 output "public_ip" {
-  description = "Static IP attached to the instance. Point DNS here, or just curl it."
+  description = "Static IP attached to the instance. Point DNS at this if you bring your own domain."
   value       = aws_lightsail_static_ip.api.ip_address
+}
+
+output "domain" {
+  description = "Hostname Caddy serves under. Defaults to <ip>.nip.io if no custom domain was provided."
+  value       = local.effective_domain
 }
 
 output "ssh_command" {
@@ -13,11 +18,11 @@ output "ssh_command" {
 }
 
 output "dashboard_url" {
-  description = "Where the dashboard will be reachable once cloud-init finishes."
-  value       = var.domain == "" ? "http://${aws_lightsail_static_ip.api.ip_address}" : "https://${var.domain}"
+  description = "Where the dashboard will be reachable once cloud-init finishes + Caddy provisions the cert."
+  value       = "https://${local.effective_domain}"
 }
 
 output "ingest_url" {
-  description = "URL the tracker SDK should POST to (set NEXT_PUBLIC_WEBALYTICS_HOST / init({ host })) to this."
-  value       = var.domain == "" ? "http://${aws_lightsail_static_ip.api.ip_address}" : "https://${var.domain}"
+  description = "URL tracker SDKs should POST to (set as NEXT_PUBLIC_WEBALYTICS_HOST or tracker init({ host })) to this."
+  value       = "https://${local.effective_domain}"
 }

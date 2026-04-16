@@ -4,9 +4,15 @@
 git_repo_url = "https://github.com/YOUR_ORG/webalytics.git"
 git_branch   = "main"
 
-# Optional: set to flip Caddy into auto-HTTPS mode. Leave empty for IP-only
-# HTTP. Remember to point DNS at the static IP output.
+# Optional: your own hostname. Leave empty and Terraform will default
+# to <static_ip>.nip.io, which resolves back to the box automatically
+# and gets a real Let's Encrypt cert (no DNS setup required from you).
+# Swap to your real domain later by setting this + pointing an A record
+# at the public_ip output.
 domain = ""
+
+# Recommended: email Let's Encrypt will send cert expiry notices to.
+# acme_email = "you@example.com"
 
 # Optional: tighten SSH access to your office / home IP.
 # allow_ssh_from_cidr = "203.0.113.42/32"
