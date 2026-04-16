@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -31,6 +32,14 @@ func encodeJSON(w io.Writer, v any) error {
 
 // writeStoreError maps postgres sentinel errors to HTTP responses.
 func writeStoreError(w http.ResponseWriter, err error) {
+	writeStoreErrorCtx(nil, w, err)
+}
+
+// writeStoreErrorCtx is like writeStoreError but logs the underlying error
+// on the 500 path. Handlers that have access to *slog.Logger should prefer
+// this variant; the original writeStoreError is kept for callsites that
+// don't yet thread a logger through.
+func writeStoreErrorCtx(log *slog.Logger, w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, postgres.ErrNotFound):
 		server.Error(w, http.StatusNotFound, "not_found", "resource not found")
@@ -39,6 +48,13 @@ func writeStoreError(w http.ResponseWriter, err error) {
 	case errors.Is(err, postgres.ErrValidation):
 		server.Error(w, http.StatusBadRequest, "validation_failed", "invalid input")
 	default:
+		// Never return the raw error to the client (could leak schema),
+		// but always log it so the operator can actually debug.
+		if log != nil {
+			log.Error("store error", slog.String("err", err.Error()))
+		} else {
+			slog.Default().Error("store error", slog.String("err", err.Error()))
+		}
 		server.Error(w, http.StatusInternalServerError, "internal_error", "internal error")
 	}
 }

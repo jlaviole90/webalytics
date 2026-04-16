@@ -175,8 +175,12 @@ func (s *StatsStore) timeseriesUUID(
 		return nil, fmt.Errorf("unsupported metric %q for timeseries in v1", metric)
 	}
 
+	// toFloat64 mirrors the breakdown query: ClickHouse's uniq()/countIf()
+	// return UInt64, but TimeseriesPoint.Value is float64 and the driver
+	// won't implicitly widen. Without this cast, Scan fails with a type
+	// mismatch and the endpoint returns 500.
 	q := fmt.Sprintf(`
-		SELECT %s AS bucket, %s AS value
+		SELECT %s AS bucket, toFloat64(%s) AS value
 		FROM events
 		WHERE %s
 		GROUP BY bucket
