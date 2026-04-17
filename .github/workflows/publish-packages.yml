@@ -1,15 +1,13 @@
 name: Publish JS packages
 
-# One-click release of every @jlaviole90/* package to GitHub Packages.
+# One-click release of every @jlaviole90/* package to public npm.
 # All five packages are bumped to the same version and published together.
 #
 # Trigger from the Actions tab: "Publish JS packages" -> Run workflow
 #   bump = patch | minor | major
 #
-# Consumers install by adding to their .npmrc:
-#   @jlaviole90:registry=https://npm.pkg.github.com
-#   //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
-# where GITHUB_TOKEN is a PAT with read:packages scope.
+# Consumers install with no auth required:
+#   npm install @jlaviole90/tracker
 
 on:
   workflow_dispatch:
@@ -48,8 +46,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          registry-url: "https://npm.pkg.github.com"
-          scope: "@jlaviole90"
+          registry-url: "https://registry.npmjs.org"
           cache: "npm"
 
       - name: Configure git identity
@@ -117,21 +114,18 @@ jobs:
       - name: Publish @jlaviole90/tracker
         working-directory: packages/tracker
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish
 
       - name: Publish @jlaviole90/tracker-next
         working-directory: packages/tracker-next
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish
 
       - name: Publish @jlaviole90/tracker-angular
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # Also an ng-packagr build (partial Ivy) — must publish from the
-        # dist/ payload so Angular consumers get ɵɵngDeclareInjectable
-        # instead of raw runtime decorators that force JIT.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
           DIST=packages/tracker-angular/dist
@@ -142,15 +136,12 @@ jobs:
       - name: Publish @jlaviole90/dashboard-react
         working-directory: packages/dashboard-react
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish
 
       - name: Publish @jlaviole90/dashboard-angular
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # ng-packagr emits a ready-to-publish directory at dist/; we publish
-        # from there so the consumer-facing package.json is the one ng-packagr
-        # generated (with main/module/types wired up) rather than the source.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
           DIST=packages/dashboard-angular/dist
@@ -158,12 +149,7 @@ jobs:
           cp packages/dashboard-angular/README.md "$DIST/" 2>/dev/null || true
           cd "$DIST" && npm publish
 
-      - name: Refresh lockfile now that registry has new versions
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # Non-blocking: registry propagation can lag a few seconds, and a stale
-        # lockfile in the commit is purely cosmetic — nothing downstream reads
-        # it before the next local `npm install`.
+      - name: Refresh lockfile
         run: npm install --no-audit --no-fund --package-lock-only || true
 
       - name: Commit version bump + tag

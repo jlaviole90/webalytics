@@ -1,5 +1,10 @@
 export { createClient } from "./client";
-export type { ClientConfig, DashboardClient } from "./client";
+export type {
+  ClientConfig,
+  ServerClientConfig,
+  PublicClientConfig,
+  DashboardClient,
+} from "./client";
 
 export * from "./types";
 

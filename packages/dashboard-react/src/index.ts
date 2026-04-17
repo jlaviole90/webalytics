@@ -1,5 +1,10 @@
 export { createClient } from "./client.js";
-export type { ClientConfig, DashboardClient } from "./client.js";
+export type {
+  ClientConfig,
+  ServerClientConfig,
+  PublicClientConfig,
+  DashboardClient,
+} from "./client.js";
 
 export * from "./types.js";
 

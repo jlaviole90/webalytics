@@ -203,5 +203,20 @@ func (s *IngestSiteStore) LookupByPublicID(ctx context.Context, publicSiteID str
 	return out, nil
 }
 
+// ResolvePublicSiteID translates a wb_live_* public site ID into the
+// internal UUID string. Used by the public token middleware so clients
+// can pass either identifier in URLs.
+func (s *SiteStore) ResolvePublicSiteID(ctx context.Context, publicSiteID string) (string, error) {
+	var id string
+	err := s.pool.QueryRow(ctx,
+		`SELECT id::TEXT FROM sites WHERE public_site_id = $1 AND deleted_at IS NULL`,
+		publicSiteID,
+	).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	return id, err
+}
+
 // ErrNotFound is returned when a lookup misses.
 var ErrNotFound = errors.New("not found")

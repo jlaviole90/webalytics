@@ -21,6 +21,13 @@ type PublicResolver interface {
 	Resolve(ctx context.Context, raw string) (*domain.PublicToken, error)
 }
 
+// PublicSiteResolver resolves a wb_live_* public site ID to a site UUID.
+// Allows clients to use the public site ID in URL paths instead of having
+// to know the internal UUID.
+type PublicSiteResolver interface {
+	ResolvePublicSiteID(ctx context.Context, publicSiteID string) (string, error)
+}
+
 // PublicTokenMiddleware returns an http middleware that:
 //
 //  1. Extracts a bearer token from the Authorization header.
@@ -39,7 +46,7 @@ type PublicResolver interface {
 // This is intentionally NOT a drop-in replacement for auth.Middleware —
 // it enforces narrower guarantees and must only be mounted under routes
 // that are safe to run read-only (i.e. /public/v1/sites/{siteId}/stats/*).
-func PublicTokenMiddleware(r PublicResolver) func(http.Handler) http.Handler {
+func PublicTokenMiddleware(r PublicResolver, sites PublicSiteResolver) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			origin := req.Header.Get("Origin")
@@ -59,8 +66,6 @@ func PublicTokenMiddleware(r PublicResolver) func(http.Handler) http.Handler {
 
 			raw := extractBearer(req.Header.Get("Authorization"))
 			if raw == "" {
-				// No token yet, no identity to bind CORS to; just set
-				// Vary: Origin so caches behave.
 				writeCORSHeaders(w, origin, false)
 				server.Error(w, http.StatusUnauthorized, "unauthorized", "missing bearer token")
 				return
@@ -78,16 +83,9 @@ func PublicTokenMiddleware(r PublicResolver) func(http.Handler) http.Handler {
 				return
 			}
 
-			// Origin allowlist check. Empty list = no binding (public stats
-			// page mode). Non-empty = must match exactly (scheme+host).
-			// Origin header may be absent for server-to-server callers of
-			// the public endpoint (curl, Next.js fetch), which we allow
-			// only when the token isn't origin-bound.
+			// Origin allowlist check.
 			if len(tok.AllowedOrigins) > 0 {
 				if origin == "" || !matchOrigin(origin, tok.AllowedOrigins) {
-					// Deny path: DO NOT echo the origin back; that
-					// would leak "this token exists" to pages on
-					// disallowed origins via the body of the 403.
 					writeCORSHeaders(w, origin, false)
 					server.Error(w, http.StatusForbidden, "forbidden_origin",
 						"origin not allowed for this token")
@@ -96,17 +94,46 @@ func PublicTokenMiddleware(r PublicResolver) func(http.Handler) http.Handler {
 			}
 
 			// Site binding: the URL's {siteId} must match the token's
-			// SiteID. Without this, a jlav.io token could read acme.com's
-			// stats if the attacker knew acme's site UUID.
+			// SiteID. Clients may pass either the UUID or the wb_live_*
+			// public site ID — we resolve the latter to a UUID so
+			// downstream handlers always see a UUID.
 			siteParam := chi.URLParam(req, "siteId")
-			if siteParam != "" && siteParam != tok.SiteID.String() {
-				// Same CORS posture as a successful request — the
-				// caller is legitimate, they just asked for the
-				// wrong site UUID.
+			resolvedSiteID := siteParam
+
+			if siteParam != "" && strings.HasPrefix(siteParam, "wb_") {
+				// Client passed a public site ID; resolve to UUID.
+				if sites == nil {
+					writeCORSHeaders(w, origin, false)
+					server.Error(w, http.StatusInternalServerError, "internal_error", "site resolver not configured")
+					return
+				}
+				uuid, err := sites.ResolvePublicSiteID(req.Context(), siteParam)
+				if err != nil {
+					writeCORSHeaders(w, origin, false)
+					server.Error(w, http.StatusNotFound, "not_found", "unknown site id")
+					return
+				}
+				resolvedSiteID = uuid
+			}
+
+			if resolvedSiteID != "" && resolvedSiteID != tok.SiteID.String() {
 				writeCORSHeaders(w, origin, originAllowed(origin, tok.AllowedOrigins))
 				server.Error(w, http.StatusForbidden, "forbidden_site",
 					"token is not authorized for this site")
 				return
+			}
+
+			// Rewrite the chi route param to the resolved UUID so
+			// downstream handlers (stats.go) always receive a UUID
+			// regardless of what the client passed in the URL.
+			if resolvedSiteID != siteParam {
+				rctx := chi.RouteContext(req.Context())
+				for i, k := range rctx.URLParams.Keys {
+					if k == "siteId" {
+						rctx.URLParams.Values[i] = resolvedSiteID
+						break
+					}
+				}
 			}
 
 			// Success path: grant CORS and install context.

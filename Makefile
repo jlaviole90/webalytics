@@ -34,7 +34,8 @@
         js-install js-build js-test js-size \
         browser-install browser-e2e \
         tf-init tf-plan tf-apply tf-destroy tf-output deploy prod-logs prod-ssh \
-        provision public-token prod-public-token
+        provision public-token prod-public-token \
+        onboard onboard-remote
 
 COMPOSE ?= docker compose
 
@@ -123,6 +124,40 @@ prod-public-token:
 		ALLOWED_ORIGINS='$(ALLOWED_ORIGINS)' \
 		PUBLIC_TOKEN_NAME='$(PUBLIC_TOKEN_NAME)' \
 		bash deploy/provision-public-token.sh"
+
+# Full client onboard: org + site + domains + admin token + public token
+# in a single pass. Prints copy-paste client instructions to stdout.
+#   make onboard ORG_SLUG=acme ORG_NAME="Acme" SITE_NAME="Acme" DOMAINS="acme.com,www.acme.com"
+onboard:
+	@test -n "$(ORG_SLUG)" || (echo "ORG_SLUG=... ORG_NAME=... SITE_NAME=... DOMAINS=... make onboard" && exit 1)
+	@test -n "$(ORG_NAME)" || (echo "ORG_NAME required" && exit 1)
+	@test -n "$(SITE_NAME)" || (echo "SITE_NAME required" && exit 1)
+	@test -n "$(DOMAINS)" || (echo "DOMAINS required" && exit 1)
+	ORG_SLUG=$(ORG_SLUG) ORG_NAME="$(ORG_NAME)" SITE_NAME="$(SITE_NAME)" \
+		DOMAINS="$(DOMAINS)" ALLOWED_ORIGINS="$(ALLOWED_ORIGINS)" \
+		bash deploy/onboard.sh
+
+# Remote variant: SSHes into the prod box, runs onboard, and pulls
+# the credentials file back to your laptop. One command, done.
+#   make onboard-remote ORG_SLUG=acme ORG_NAME="Acme" SITE_NAME="Acme" DOMAINS="acme.com"
+onboard-remote:
+	@test -n "$(HOST)" || (echo "HOST=ubuntu@<ip> make onboard-remote ..." && exit 1)
+	@test -n "$(ORG_SLUG)" || (echo "ORG_SLUG required" && exit 1)
+	@test -n "$(ORG_NAME)" || (echo "ORG_NAME required" && exit 1)
+	@test -n "$(SITE_NAME)" || (echo "SITE_NAME required" && exit 1)
+	@test -n "$(DOMAINS)" || (echo "DOMAINS required" && exit 1)
+	$(SSH) $(HOST) "cd /opt/webalytics && sudo \
+		ORG_SLUG='$(ORG_SLUG)' \
+		ORG_NAME='$(ORG_NAME)' \
+		SITE_NAME='$(SITE_NAME)' \
+		DOMAINS='$(DOMAINS)' \
+		ALLOWED_ORIGINS='$(ALLOWED_ORIGINS)' \
+		bash deploy/onboard.sh"
+	@echo ""
+	@echo "Pulling credentials to ./$(ORG_SLUG).env ..."
+	@$(SSH) $(HOST) "sudo cat /opt/webalytics/deploy/tenants/$(ORG_SLUG).env" > ./$(ORG_SLUG).env
+	@chmod 600 ./$(ORG_SLUG).env
+	@echo "Saved: ./$(ORG_SLUG).env"
 
 # Wipes only the event/analytics data out of ClickHouse, leaving the api,
 # seed config, users/sites intact. Useful when dashboard counts have been

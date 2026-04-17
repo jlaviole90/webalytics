@@ -40,7 +40,7 @@ func newRouterWithToken(t *testing.T, res PublicResolver) (*chi.Mux, *string) {
 	var seenOrg string
 	r := chi.NewRouter()
 	r.Route("/x/{siteId}", func(r chi.Router) {
-		r.Use(PublicTokenMiddleware(res))
+		r.Use(PublicTokenMiddleware(res, nil))
 		r.Get("/ping", func(w http.ResponseWriter, req *http.Request) {
 			seenOrg = server.OrgIDFrom(req.Context())
 			w.WriteHeader(http.StatusOK)
