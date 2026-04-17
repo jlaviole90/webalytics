@@ -1,6 +1,6 @@
 {
   "name": "@jlaviole90/dashboard-angular",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Standalone Angular 17+ components for displaying Webalytics data. Mirrors @jlaviole90/dashboard-react.",
   "license": "MIT",
   "type": "module",

@@ -1,6 +1,6 @@
 {
   "name": "@jlaviole90/tracker-next",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Next.js bindings for @jlaviole90/tracker. Supports App Router and Pages Router.",
   "license": "MIT",
   "type": "module",
@@ -34,7 +34,7 @@
     "react": ">=18"
   },
   "dependencies": {
-    "@jlaviole90/tracker": "0.1.1"
+    "@jlaviole90/tracker": "0.1.2"
   },
   "devDependencies": {
     "@testing-library/react": "^16.0.0",
