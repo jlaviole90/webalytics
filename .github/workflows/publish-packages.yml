@@ -98,10 +98,10 @@ jobs:
           echo "version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
           echo "Bumped all packages to v${NEW_VERSION}"
 
-      - name: Refresh lockfile after bump
-        run: npm install --no-audit --no-fund --package-lock-only
-
       - name: Build all packages
+        # Workspaces resolve sibling packages via the local filesystem, so the
+        # stale lockfile pin is fine for build. We refresh it after publish,
+        # once the registry actually has the new versions.
         run: npm run build --workspaces --if-present
 
       - name: Publish @jlaviole90/tracker
@@ -140,6 +140,14 @@ jobs:
           test -d "$DIST" || { echo "ng-packagr output missing at $DIST"; exit 1; }
           cp packages/dashboard-angular/README.md "$DIST/" 2>/dev/null || true
           cd "$DIST" && npm publish
+
+      - name: Refresh lockfile now that registry has new versions
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Non-blocking: registry propagation can lag a few seconds, and a stale
+        # lockfile in the commit is purely cosmetic — nothing downstream reads
+        # it before the next local `npm install`.
+        run: npm install --no-audit --no-fund --package-lock-only || true
 
       - name: Commit version bump + tag
         env:
