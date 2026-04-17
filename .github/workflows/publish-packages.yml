@@ -64,39 +64,49 @@ jobs:
         id: bump
         env:
           BUMP: ${{ inputs.bump }}
+        # Do NOT use `npm version` here. In npm 10 (Node 20) `npm version`
+        # inside a workspace subdir tries to reconcile the root lockfile,
+        # which forces resolution of every listed dep. Once we bump tracker
+        # to 0.1.1 but tracker-next still pins tracker@0.1.0 in its
+        # dependencies, the workspace no longer satisfies the pin and npm
+        # reaches out to GitHub Packages for tracker@0.1.0 — which doesn't
+        # exist on a first release — and fails with E404. Pure JSON editing
+        # sidesteps all of that: no lockfile churn, no registry hits.
         run: |
           set -euo pipefail
-          PKGS=(
-            packages/tracker
-            packages/tracker-next
-            packages/tracker-angular
-            packages/dashboard-react
-            packages/dashboard-angular
-          )
-          for p in "${PKGS[@]}"; do
-            (cd "$p" && npm version "$BUMP" --no-git-tag-version --allow-same-version)
-          done
+          node - <<'NODE'
+            const fs = require('fs');
 
-          # Internal packages (tracker-next, tracker-angular) pin @jlaviole90/tracker
-          # to an exact version. Keep those refs in sync with the new version.
-          node -e '
-            const fs = require("fs");
-            const v = require("./packages/tracker/package.json").version;
-            for (const p of [
-              "packages/tracker-next/package.json",
-              "packages/tracker-angular/package.json",
-            ]) {
-              const j = JSON.parse(fs.readFileSync(p, "utf8"));
-              if (j.dependencies && j.dependencies["@jlaviole90/tracker"]) {
-                j.dependencies["@jlaviole90/tracker"] = v;
+            const bump = (process.env.BUMP || 'patch').trim();
+            const trackerPkg = JSON.parse(
+              fs.readFileSync('./packages/tracker/package.json', 'utf8')
+            );
+            const [maj, min, pat] = trackerPkg.version.split('.').map(Number);
+            let next;
+            if (bump === 'major')      next = `${maj + 1}.0.0`;
+            else if (bump === 'minor') next = `${maj}.${min + 1}.0`;
+            else                        next = `${maj}.${min}.${pat + 1}`;
+
+            const PKGS = [
+              'packages/tracker',
+              'packages/tracker-next',
+              'packages/tracker-angular',
+              'packages/dashboard-react',
+              'packages/dashboard-angular',
+            ];
+            for (const dir of PKGS) {
+              const file = `${dir}/package.json`;
+              const j = JSON.parse(fs.readFileSync(file, 'utf8'));
+              j.version = next;
+              if (j.dependencies && j.dependencies['@jlaviole90/tracker']) {
+                j.dependencies['@jlaviole90/tracker'] = next;
               }
-              fs.writeFileSync(p, JSON.stringify(j, null, 2) + "\n");
+              fs.writeFileSync(file, JSON.stringify(j, null, 2) + '\n');
             }
-          '
 
-          NEW_VERSION=$(node -p "require('./packages/tracker/package.json').version")
-          echo "version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Bumped all packages to v${NEW_VERSION}"
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${next}\n`);
+            console.log(`Bumped all packages to v${next}`);
+          NODE
 
       - name: Build all packages
         # Workspaces resolve sibling packages via the local filesystem, so the
