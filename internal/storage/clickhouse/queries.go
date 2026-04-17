@@ -359,6 +359,7 @@ var allowedDimensions = map[string]string{
 	"region":        "region",
 	"city":          "city",
 	"device_type":   "ua_device_type",
+	"device":        "ua_device_type",
 	"browser":       "ua_browser",
 	"os":            "ua_os",
 	"language":      "language",
