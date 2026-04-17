@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -125,6 +126,15 @@ func (s *StatsStore) summaryUUID(ctx context.Context, orgID, siteID uuid.UUID, w
 	row2 := s.conn.QueryRow(ctx, qs, orgID, siteID, w.From, w.To)
 	if err := row2.Scan(&bounce, &avgS); err != nil {
 		return SummaryMetrics{}, fmt.Errorf("summary sessions: %w", err)
+	}
+	// ClickHouse returns NaN for avg() over an empty set; json.Encoder
+	// can't serialize NaN/Inf, so the response ends up as 200-with-0-bytes
+	// and browsers throw "unexpected end of JSON". Clamp both metrics.
+	if math.IsNaN(bounce) || math.IsInf(bounce, 0) {
+		bounce = 0
+	}
+	if math.IsNaN(avgS) || math.IsInf(avgS, 0) {
+		avgS = 0
 	}
 	out.BounceRate = bounce
 	out.AvgSessionS = avgS
@@ -533,6 +543,12 @@ func (s *StatsStore) WebVitals(
 		)
 		if err := rows.Scan(&grp, &mn, &samples, &p75, &p95, &good, &ni, &poor); err != nil {
 			return WebVitalsResult{}, err
+		}
+		if math.IsNaN(p75) || math.IsInf(p75, 0) {
+			p75 = 0
+		}
+		if math.IsNaN(p95) || math.IsInf(p95, 0) {
+			p95 = 0
 		}
 		g, ok := byGroup[grp]
 		if !ok {
