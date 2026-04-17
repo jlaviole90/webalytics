@@ -516,8 +516,8 @@ func (s *StatsStore) WebVitals(
 			%s                                                      AS grp,
 			metric_name                                             AS mn,
 			count()                                                 AS samples,
-			quantileTDigest(0.75)(toFloat64(metric_value))          AS p75,
-			quantileTDigest(0.95)(toFloat64(metric_value))          AS p95,
+			toFloat64(quantileTDigest(0.75)(metric_value))          AS p75,
+			toFloat64(quantileTDigest(0.95)(metric_value))          AS p95,
 			countIf(metric_rating = 'good')                         AS good,
 			countIf(metric_rating = 'needs-improvement')            AS ni,
 			countIf(metric_rating = 'poor')                         AS poor
