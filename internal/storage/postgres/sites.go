@@ -204,12 +204,12 @@ func (s *IngestSiteStore) LookupByPublicID(ctx context.Context, publicSiteID str
 }
 
 // ResolvePublicSiteID translates a wb_live_* public site ID into the
-// internal UUID string. Uses the BYPASSRLS ingest pool because this
-// runs in the public-token middleware before any org context is set.
+// internal UUID string. Uses the ingest pool and the ingest_site_lookup
+// view (the only table-like object the ingest role can SELECT).
 func (s *IngestSiteStore) ResolvePublicSiteID(ctx context.Context, publicSiteID string) (string, error) {
 	var id string
 	err := s.pool.QueryRow(ctx,
-		`SELECT id::TEXT FROM sites WHERE public_site_id = $1 AND deleted_at IS NULL`,
+		`SELECT DISTINCT site_id::TEXT FROM ingest_site_lookup WHERE public_site_id = $1`,
 		publicSiteID,
 	).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {

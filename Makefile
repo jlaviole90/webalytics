@@ -237,7 +237,7 @@ tf-output:
 # automatically if present, or SSH_KEY=... if you set it.
 deploy:
 	@test -n "$(HOST)" || (echo "HOST=ubuntu@<ip> make deploy" && exit 1)
-	$(SSH) $(HOST) 'set -e; cd /opt/webalytics && git fetch --all --prune && git reset --hard origin/main && sudo systemctl restart webalytics.service && sudo systemctl status --no-pager webalytics.service | head -n 20'
+	$(SSH) $(HOST) 'set -e; cd /opt/webalytics && git fetch --all --prune && git reset --hard origin/main && sudo docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml build --no-cache api && sudo docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up -d && sudo docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml ps'
 
 prod-logs:
 	@test -n "$(HOST)" || (echo "HOST=ubuntu@<ip> make prod-logs" && exit 1)
