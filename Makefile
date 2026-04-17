@@ -38,6 +38,16 @@
 
 COMPOSE ?= docker compose
 
+# SSH helpers for all prod-* targets. Pass SSH_KEY=path/to/key to use an
+# explicit identity file; defaults to the Terraform-provisioned key if
+# it exists locally, otherwise relies on the caller's ssh-agent / config.
+TF_SSH_KEY := infra/terraform/keys/webalytics_ed25519
+ifneq ("$(wildcard $(TF_SSH_KEY))","")
+SSH_KEY   ?= $(TF_SSH_KEY)
+endif
+SSH_OPTS  := $(if $(SSH_KEY),-i $(SSH_KEY),)
+SSH       := ssh $(SSH_OPTS)
+
 up:
 	$(COMPOSE) up -d --build
 
@@ -108,7 +118,7 @@ public-token:
 prod-public-token:
 	@test -n "$(HOST)" || (echo "HOST=ubuntu@<ip> ORG_SLUG=... make prod-public-token" && exit 1)
 	@test -n "$(ORG_SLUG)" || (echo "ORG_SLUG required" && exit 1)
-	ssh $(HOST) "cd /opt/webalytics && sudo \
+	$(SSH) $(HOST) "cd /opt/webalytics && sudo \
 		ORG_SLUG=$(ORG_SLUG) \
 		ALLOWED_ORIGINS='$(ALLOWED_ORIGINS)' \
 		PUBLIC_TOKEN_NAME='$(PUBLIC_TOKEN_NAME)' \
@@ -188,14 +198,16 @@ tf-output:
 
 # Out-of-band manual redeploy (CI does this automatically on green main).
 # Pulls main + restarts the systemd unit on the Lightsail box.
+# Uses $(SSH) so it picks up infra/terraform/keys/webalytics_ed25519
+# automatically if present, or SSH_KEY=... if you set it.
 deploy:
 	@test -n "$(HOST)" || (echo "HOST=ubuntu@<ip> make deploy" && exit 1)
-	ssh $(HOST) 'set -e; cd /opt/webalytics && git fetch --all --prune && git reset --hard origin/main && sudo systemctl restart webalytics.service && sudo systemctl status --no-pager webalytics.service | head -n 20'
+	$(SSH) $(HOST) 'set -e; cd /opt/webalytics && git fetch --all --prune && git reset --hard origin/main && sudo systemctl restart webalytics.service && sudo systemctl status --no-pager webalytics.service | head -n 20'
 
 prod-logs:
 	@test -n "$(HOST)" || (echo "HOST=ubuntu@<ip> make prod-logs" && exit 1)
-	ssh $(HOST) 'cd /opt/webalytics && sudo docker compose --env-file /opt/webalytics/.env.prod -f docker-compose.yml -f docker-compose.prod.yml --profile prod logs -f --tail=200'
+	$(SSH) $(HOST) 'cd /opt/webalytics && sudo docker compose --env-file /opt/webalytics/.env.prod -f docker-compose.yml -f docker-compose.prod.yml --profile prod logs -f --tail=200'
 
 prod-ssh:
 	@test -n "$(HOST)" || (echo "HOST=ubuntu@<ip> make prod-ssh" && exit 1)
-	ssh $(HOST)
+	$(SSH) $(HOST)
