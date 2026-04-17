@@ -4,10 +4,6 @@
   "description": "Standalone Angular 17+ components for displaying Webalytics data. Mirrors @jlaviole90/dashboard-react.",
   "license": "MIT",
   "type": "module",
-  "files": [
-    "dist",
-    "README.md"
-  ],
   "scripts": {
     "build": "ng-packagr -p ng-package.json",
     "typecheck": "tsc --noEmit"
