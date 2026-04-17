@@ -1,4 +1,4 @@
-# @webalytics/dashboard-react
+# @jlaviole90/dashboard-react
 
 Server-rendered React components for displaying your Webalytics data.
 Ships zero runtime dependencies outside of React — all charts are
@@ -6,7 +6,7 @@ inline SVG, all styles are inline, and every component is async Server
 Component-native.
 
 ```
-npm install @webalytics/dashboard-react
+npm install @jlaviole90/dashboard-react
 ```
 
 ## Two modes
@@ -18,7 +18,7 @@ SSR, no auth leaks to the browser.
 
 ```tsx
 // app/analytics/page.tsx — Next.js App Router
-import { createClient, Dashboard } from "@webalytics/dashboard-react";
+import { createClient, Dashboard } from "@jlaviole90/dashboard-react";
 
 // IMPORTANT: this client holds a bearer token. Only import it into
 // Server Components / route handlers, never into "use client" files.
@@ -56,7 +56,7 @@ Then in your React app:
 
 ```tsx
 "use client";
-import { createClient, Dashboard } from "@webalytics/dashboard-react";
+import { createClient, Dashboard } from "@jlaviole90/dashboard-react";
 
 const client = createClient({
   kind:        "public",
@@ -91,7 +91,7 @@ import {
   TimeseriesChart,
   TopList,
   WebVitalsCards,
-} from "@webalytics/dashboard-react";
+} from "@jlaviole90/dashboard-react";
 
 const client = createClient({ /* ... */ });
 

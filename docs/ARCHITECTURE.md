@@ -65,7 +65,7 @@ within a team or agency.
 ```mermaid
 flowchart LR
     subgraph Browser["End user's browser"]
-        SDK["@webalytics/tracker\n(NPM package)"]
+        SDK["@jlaviole90/tracker\n(NPM package)"]
     end
 
     subgraph Edge["AWS edge"]
@@ -103,7 +103,7 @@ flowchart LR
 
 ### Request lifecycle (hot path)
 
-1. A browser loads a page that includes `@webalytics/tracker`.
+1. A browser loads a page that includes `@jlaviole90/tracker`.
 2. The tracker reads its config (site ID, ingest URL) from a `<script>` tag
    or explicit `init()` call, collects the pageview fields it can gather
    without cookies or consent, and `POST`s a JSON body to `/collect`.
@@ -543,11 +543,11 @@ the single source of truth for request/response shapes.
 
 ---
 
-## 8. NPM Package — `@webalytics/tracker`
+## 8. NPM Package — `@jlaviole90/tracker`
 
 ### Distribution
 
-- Published as `@webalytics/tracker` (ESM + CJS + UMD builds).
+- Published as `@jlaviole90/tracker` (ESM + CJS + UMD builds).
 - Ships with first-party adapters for Next.js, Remix, Astro, SvelteKit, and
   plain HTML. Each adapter wraps the core with framework-idiomatic hooks
   (e.g. `usePageview()`).
@@ -821,7 +821,7 @@ Things we should resolve before or during Phase 1.
 ### C. Non-technical notes
 
 - Naming: the repo is `webalytics`; the NPM package namespace is
-  `@webalytics/*`; the public-facing product name is TBD but does not
+  `@jlaviole90/*`; the public-facing product name is TBD but does not
   affect this design.
 - License choice (AGPL vs MIT vs BSL) is deferred to the code-landing
   phase.

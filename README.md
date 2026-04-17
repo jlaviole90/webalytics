@@ -74,8 +74,8 @@ covers the 80% most people actually use. See [Status](#status-and-roadmap).
 | **Web Vitals** | LCP, INP, CLS, FCP, TTFB collected by the tracker, stored as first-class rows with good/needs-improvement/poor rating |
 | **Query API** | Typed `/v1/stats/*` endpoints: realtime, summary, timeseries, breakdown (11 dimensions), web-vitals. Bearer auth |
 | **Multi-tenancy** | Orgs → sites → domains → tokens, enforced three ways (API middleware, Postgres RLS, ClickHouse query builders) |
-| **Dashboards** | Server-rendered React components (`@webalytics/dashboard-react`) and standalone Angular components (`@webalytics/dashboard-angular`), visually identical |
-| **Tracker bindings** | Vanilla (`@webalytics/tracker`), Next.js (`@webalytics/tracker-next`), Angular (`@webalytics/tracker-angular`) |
+| **Dashboards** | Server-rendered React components (`@jlaviole90/dashboard-react`) and standalone Angular components (`@jlaviole90/dashboard-angular`), visually identical |
+| **Tracker bindings** | Vanilla (`@jlaviole90/tracker`), Next.js (`@jlaviole90/tracker-next`), Angular (`@jlaviole90/tracker-angular`) |
 | **Deployment** | Terraform → Lightsail, cloud-init bootstrap, Caddy auto-HTTPS, systemd-managed Docker Compose, GitHub Actions redeploy on green main |
 | **Observability** | Structured JSON logs, `/healthz`, debug echo mode (`?debug=1`) for tracker troubleshooting |
 
@@ -86,7 +86,7 @@ covers the 80% most people actually use. See [Status](#status-and-roadmap).
 ```
 Browser / SPA                       Single Lightsail box
 +---------------------------+       +--------------------------------------+
-| @webalytics/tracker       |       |        Caddy (auto Let's Encrypt)    |
+| @jlaviole90/tracker       |       |        Caddy (auto Let's Encrypt)    |
 |   (or -next / -angular)   | HTTPS |        :80 -> :443                   |
 |                           +------>+         |                            |
 | <script> / init()         |       |         v                            |
@@ -95,7 +95,7 @@ Browser / SPA                       Single Lightsail box
 SSR dashboard (Next.js / Angular    |    +-- /collect    --> ClickHouse    |
 Universal)                          |    +-- /v1/sites/* --> Postgres RLS  |
 +---------------------------+       |    +-- /v1/stats/* --> ClickHouse    |
-| @webalytics/dashboard-*   |       |    +-- /healthz                      |
+| @jlaviole90/dashboard-*   |       |    +-- /healthz                      |
 |   createClient({ token })  | HTTPS |                                      |
 |   <Dashboard />            +------>+   Redis (rate limit + realtime)      |
 +---------------------------+       +--------------------------------------+
@@ -139,15 +139,15 @@ webalytics/
 │   └── clickhouse/           0001_events, 0002_materialized_views
 │
 ├── packages/                 NPM workspace (published packages)
-│   ├── tracker/              @webalytics/tracker          (vanilla, UMD+ESM+CJS)
-│   ├── tracker-next/         @webalytics/tracker-next     (Next.js bindings)
-│   ├── tracker-angular/      @webalytics/tracker-angular  (Angular bindings)
-│   ├── dashboard-react/      @webalytics/dashboard-react  (RSC components)
-│   └── dashboard-angular/    @webalytics/dashboard-angular (standalone components)
+│   ├── tracker/              @jlaviole90/tracker          (vanilla, UMD+ESM+CJS)
+│   ├── tracker-next/         @jlaviole90/tracker-next     (Next.js bindings)
+│   ├── tracker-angular/      @jlaviole90/tracker-angular  (Angular bindings)
+│   ├── dashboard-react/      @jlaviole90/dashboard-react  (RSC components)
+│   └── dashboard-angular/    @jlaviole90/dashboard-angular (standalone components)
 │
 ├── apps/                     NPM workspace (not published)
 │   ├── demo-next/            Dogfood Next.js site that fires pageviews + events
-│   └── dashboard-next/       Dogfood dashboard using @webalytics/dashboard-react
+│   └── dashboard-next/       Dogfood dashboard using @jlaviole90/dashboard-react
 │
 ├── test/
 │   ├── e2e/                  Go e2e tests (HTTP-level, against running stack)
@@ -253,10 +253,25 @@ curl -H "Authorization: Bearer $WEBALYTICS_TOKEN" \
 
 ## NPM packages
 
-All packages live under `packages/` as an npm workspace. Each is
-publishable to npm under the `@webalytics/*` scope.
+All packages live under `packages/` as an npm workspace and are published
+to **GitHub Packages** under the `@jlaviole90/*` scope. Releases are cut
+in lockstep (all five packages → same version) via the
+[Publish JS packages](.github/workflows/publish-packages.yml) workflow —
+GitHub Actions → Run workflow → pick `patch` / `minor` / `major`.
 
-### `@webalytics/tracker` — vanilla browser tracker
+Consumers install via `.npmrc`:
+
+```
+@jlaviole90:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+with `GITHUB_TOKEN` set to a classic PAT with `read:packages` scope. Then
+regular `npm install @jlaviole90/tracker` etc. works. See
+[`PROVISIONING.local.md`](./PROVISIONING.local.md) for the full release +
+consume flow.
+
+### `@jlaviole90/tracker` — vanilla browser tracker
 
 Zero-dep, ~3KB gzipped UMD, cookieless by default. Ships ESM, CJS, and
 UMD builds.
@@ -271,7 +286,7 @@ UMD builds.
 ```
 
 ```ts
-import { init } from "@webalytics/tracker";
+import { init } from "@jlaviole90/tracker";
 
 const wa = init({
   siteId: "wb_live_xxxxxxxxxxxxxxxx",
@@ -288,14 +303,14 @@ Collects pageviews, SPA navigations (History API), Web Vitals (LCP/INP/
 CLS/FCP/TTFB), and custom events. Honors DNT/GPC. Never throws. Full
 docs: [`packages/tracker/README.md`](packages/tracker/README.md).
 
-### `@webalytics/tracker-next` — Next.js bindings
+### `@jlaviole90/tracker-next` — Next.js bindings
 
 App Router and Pages Router support. Auto-tracks Next's App Router
 navigation via `usePathname`, falls back to `router.events` for Pages.
 
 ```tsx
 // app/layout.tsx
-import { Analytics } from "@webalytics/tracker-next";
+import { Analytics } from "@jlaviole90/tracker-next";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -311,7 +326,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 Full docs: [`packages/tracker-next/README.md`](packages/tracker-next/README.md).
 
-### `@webalytics/tracker-angular` — Angular bindings
+### `@jlaviole90/tracker-angular` — Angular bindings
 
 Standalone Angular 17+. Auto-tracks pageviews on Router `NavigationEnd`
 (more accurate than History API hooks — respects guards, lazy routes,
@@ -322,7 +337,7 @@ metadata required at consumer-build time.
 // main.ts
 import { bootstrapApplication } from "@angular/platform-browser";
 import { provideRouter } from "@angular/router";
-import { provideWebalytics } from "@webalytics/tracker-angular";
+import { provideWebalytics } from "@jlaviole90/tracker-angular";
 import { AppComponent } from "./app/app.component";
 import { routes } from "./app/app.routes";
 
@@ -347,7 +362,7 @@ export class CheckoutPage {
 
 Full docs: [`packages/tracker-angular/README.md`](packages/tracker-angular/README.md).
 
-### `@webalytics/dashboard-react` — React Server Components
+### `@jlaviole90/dashboard-react` — React Server Components
 
 Drop-in components that render Webalytics data as a Vercel-style dashboard.
 All components are RSC-native (async Server Components); bearer tokens
@@ -355,7 +370,7 @@ stay on the server. Zero chart dependencies — charts are inline SVG.
 
 ```tsx
 // app/analytics/page.tsx
-import { createClient, Dashboard } from "@webalytics/dashboard-react";
+import { createClient, Dashboard } from "@jlaviole90/dashboard-react";
 
 const client = createClient({
   host:   process.env.WEBALYTICS_API_HOST!,
@@ -373,7 +388,7 @@ Composable primitives: `<SummaryCards />`, `<Realtime />`,
 Theming via CSS variables on `[data-wbx]`. Full docs:
 [`packages/dashboard-react/README.md`](packages/dashboard-react/README.md).
 
-### `@webalytics/dashboard-angular` — Angular standalone components
+### `@jlaviole90/dashboard-angular` — Angular standalone components
 
 Mirror of the React package. Built with `ng-packagr` (Angular Package
 Format, Ivy partial compilation). Use from Angular Universal SSR so the
@@ -643,13 +658,13 @@ make e2e                # HTTP-level tests against running stack + seed
 ```bash
 make js-install         # npm install across all workspaces
 make js-build           # build tracker + tracker-next
-make js-test            # vitest unit tests for @webalytics/tracker
+make js-test            # vitest unit tests for @jlaviole90/tracker
 make js-size            # gzip-size gate on the UMD bundle (fails if > 4 KB)
 
 # Per-package:
-npm run build -w @webalytics/tracker-angular
-npm run build -w @webalytics/dashboard-react
-npm run build -w @webalytics/dashboard-angular   # uses ng-packagr
+npm run build -w @jlaviole90/tracker-angular
+npm run build -w @jlaviole90/dashboard-react
+npm run build -w @jlaviole90/dashboard-angular   # uses ng-packagr
 ```
 
 ### Browser e2e (Playwright)
@@ -730,7 +745,7 @@ Go
 JS
   make js-install         npm install across workspaces
   make js-build           build tracker packages
-  make js-test            vitest for @webalytics/tracker
+  make js-test            vitest for @jlaviole90/tracker
   make js-size            UMD bundle gzip-size gate
 
 Browser

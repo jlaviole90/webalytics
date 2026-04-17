@@ -100,7 +100,7 @@ PROVISIONED OK
   api_token:         $RAW_TOKEN
 
 Tracker install (client-side; public_site_id is safe to embed):
-  import { init } from "@webalytics/tracker";
+  import { init } from "@jlaviole90/tracker";
   init({
     host:   "\${WEBALYTICS_HOST:-https://<your-deploy>}",
     siteId: "$PUBLIC_SITE_ID",

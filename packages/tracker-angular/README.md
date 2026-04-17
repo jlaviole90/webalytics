@@ -1,12 +1,12 @@
-# @webalytics/tracker-angular
+# @jlaviole90/tracker-angular
 
-Angular 17+ bindings for [`@webalytics/tracker`](../tracker). Ships an
+Angular 17+ bindings for [`@jlaviole90/tracker`](../tracker). Ships an
 injectable service, a `provideWebalytics()` helper for the
 `bootstrapApplication` config, and automatic pageview tracking via
 Angular Router events.
 
 ```bash
-npm install @webalytics/tracker-angular @webalytics/tracker
+npm install @jlaviole90/tracker-angular @jlaviole90/tracker
 ```
 
 ## Setup
@@ -15,7 +15,7 @@ npm install @webalytics/tracker-angular @webalytics/tracker
 // main.ts
 import { bootstrapApplication } from "@angular/platform-browser";
 import { provideRouter } from "@angular/router";
-import { provideWebalytics } from "@webalytics/tracker-angular";
+import { provideWebalytics } from "@jlaviole90/tracker-angular";
 import { AppComponent } from "./app.component";
 import { routes } from "./app.routes";
 
@@ -40,7 +40,7 @@ That's all you need for automatic pageview + Web Vitals tracking.
 
 ```ts
 import { Component, inject } from "@angular/core";
-import { WebalyticsService } from "@webalytics/tracker-angular";
+import { WebalyticsService } from "@jlaviole90/tracker-angular";
 
 @Component({
   standalone: true,
@@ -91,5 +91,5 @@ server is automatic. Nothing special needs to happen.
 | `wa.setEnabled(b)` | Toggle tracking (wire to consent banner). |
 | `wa.flush()` | Force-flush the buffer. Returns a promise. |
 
-See [`@webalytics/tracker`](../tracker) for details about config options,
+See [`@jlaviole90/tracker`](../tracker) for details about config options,
 cookieless session logic, and the wire protocol.

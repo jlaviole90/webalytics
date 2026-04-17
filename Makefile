@@ -155,14 +155,14 @@ js-install:
 	npm install
 
 js-build:
-	npm run build -w @webalytics/tracker
-	npm run build -w @webalytics/tracker-next
+	npm run build -w @jlaviole90/tracker
+	npm run build -w @jlaviole90/tracker-next
 
 js-test:
-	npm run test -w @webalytics/tracker
+	npm run test -w @jlaviole90/tracker
 
 js-size:
-	npm run size -w @webalytics/tracker
+	npm run size -w @jlaviole90/tracker
 
 # --- Browser e2e -----------------------------------------------------------
 

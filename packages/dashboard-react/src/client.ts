@@ -45,7 +45,7 @@ export interface ServerClientConfig {
 
 /**
  * Browser-safe config. The `publicToken` is a narrow, read-only credential
- * scoped to exactly one site; see `@webalytics/dashboard-react` README and
+ * scoped to exactly one site; see `@jlaviole90/dashboard-react` README and
  * `deploy/provision-public-token.sh` for how to mint one.
  *
  * Safe to import into Client Components. Routes to `/public/v1/...`.
@@ -271,7 +271,7 @@ function assertServerOnly() {
   if (typeof window !== "undefined") {
     throw new Error(
       [
-        "@webalytics/dashboard-react: createClient({ token }) must only be called on the server.",
+        "@jlaviole90/dashboard-react: createClient({ token }) must only be called on the server.",
         "You appear to be running it in a browser context, which would leak your",
         "admin bearer token. Either move the import into a Server Component / route",
         "handler, or switch to a public embed token: createClient({ kind: 'public',",

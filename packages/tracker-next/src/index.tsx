@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { init, type InitConfig, type Tracker } from "@webalytics/tracker";
+import { init, type InitConfig, type Tracker } from "@jlaviole90/tracker";
 
 export interface WebalyticsProps extends Omit<InitConfig, "siteId" | "host"> {
   siteId?: string;
@@ -13,7 +13,7 @@ export interface WebalyticsProps extends Omit<InitConfig, "siteId" | "host"> {
  * Drop-in App Router component. Place once near the root of `app/layout.tsx`:
  *
  * ```tsx
- * import { Webalytics } from "@webalytics/tracker-next";
+ * import { Webalytics } from "@jlaviole90/tracker-next";
  *
  * export default function RootLayout({ children }) {
  *   return (
@@ -132,7 +132,7 @@ function readEnv(name: string): string | undefined {
 }
 
 // Export types for consumers.
-export type { Tracker, InitConfig } from "@webalytics/tracker";
+export type { Tracker, InitConfig } from "@jlaviole90/tracker";
 
 // Re-export raw init for callers who want to manage the tracker themselves.
-export { init } from "@webalytics/tracker";
+export { init } from "@jlaviole90/tracker";

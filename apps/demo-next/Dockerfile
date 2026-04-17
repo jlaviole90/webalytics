@@ -30,8 +30,8 @@ COPY package.json package-lock.json* tsconfig.base.json ./
 COPY packages ./packages
 COPY apps/demo-next ./apps/demo-next
 # Build the local tracker packages first so Next sees their dist output.
-RUN npm run build -w @webalytics/tracker
-RUN npm run build -w @webalytics/tracker-next
+RUN npm run build -w @jlaviole90/tracker
+RUN npm run build -w @jlaviole90/tracker-next
 # Next standalone output bundles its own minimal node_modules subset.
 WORKDIR /app/apps/demo-next
 RUN npm run build

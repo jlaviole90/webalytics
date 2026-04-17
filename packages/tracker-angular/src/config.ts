@@ -1,5 +1,5 @@
 import { InjectionToken } from "@angular/core";
-import type { InitConfig } from "@webalytics/tracker";
+import type { InitConfig } from "@jlaviole90/tracker";
 
 /** Extra Angular-specific knobs on top of the core tracker config. */
 export interface WebalyticsAngularConfig extends InitConfig {

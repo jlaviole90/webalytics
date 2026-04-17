@@ -6,7 +6,7 @@ export default function HomePage() {
     <main>
       <h1>Webalytics demo</h1>
       <p>
-        This page is wired up to <code>@webalytics/tracker-next</code>. The
+        This page is wired up to <code>@jlaviole90/tracker-next</code>. The
         pageview for this route fired when you loaded; click-through to{" "}
         <Link href="/about">/about</Link> will fire another via Next's App
         Router, not via History API patching.

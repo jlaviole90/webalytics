@@ -2,7 +2,7 @@
   "name": "webalytics-demo-next",
   "version": "0.0.0",
   "private": true,
-  "description": "Local-dev demo app for @webalytics/tracker-next. Served as a sidecar to the Go API in docker-compose so we can exercise the tracker end-to-end.",
+  "description": "Local-dev demo app for @jlaviole90/tracker-next. Served as a sidecar to the Go API in docker-compose so we can exercise the tracker end-to-end.",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
@@ -10,8 +10,8 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@webalytics/tracker": "0.1.0",
-    "@webalytics/tracker-next": "0.1.0",
+    "@jlaviole90/tracker": "0.1.0",
+    "@jlaviole90/tracker-next": "0.1.0",
     "next": "^14.2.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

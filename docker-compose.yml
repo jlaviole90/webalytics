@@ -110,7 +110,7 @@ services:
       - "8080:8080"
 
   demo-next:
-    # Next.js dogfood "writer" app — imports @webalytics/tracker-next and
+    # Next.js dogfood "writer" app — imports @jlaviole90/tracker-next and
     # POSTs pageviews/events at the api container. Opt-in; use `--profile
     # demo` (or `make up-demo`) so the core stack stays lean.
     profiles: ["demo"]

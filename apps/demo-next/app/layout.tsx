@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import { Webalytics } from "@webalytics/tracker-next";
+import { Webalytics } from "@jlaviole90/tracker-next";
 
 export const metadata = {
   title: "Webalytics demo",
-  description: "Dogfood app for the @webalytics/tracker-next adapter.",
+  description: "Dogfood app for the @jlaviole90/tracker-next adapter.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -1,4 +1,4 @@
-# @webalytics/tracker
+# @jlaviole90/tracker
 
 Tiny, cookieless browser tracker for a self-hosted [webalytics](../../) API.
 Ships as ESM, CJS, and a ~3KB-gzip UMD bundle for script-tag installs.
@@ -6,7 +6,7 @@ Ships as ESM, CJS, and a ~3KB-gzip UMD bundle for script-tag installs.
 ## Install
 
 ```bash
-npm install @webalytics/tracker
+npm install @jlaviole90/tracker
 ```
 
 Or drop in via a script tag (auto-initializes from `data-*` attrs):
@@ -24,7 +24,7 @@ Or drop in via a script tag (auto-initializes from `data-*` attrs):
 ## Programmatic usage
 
 ```ts
-import { init } from "@webalytics/tracker";
+import { init } from "@jlaviole90/tracker";
 
 const wa = init({
   siteId: "wb_live_xxxx",

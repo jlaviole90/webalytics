@@ -1,0 +1,156 @@
+name: Publish JS packages
+
+# One-click release of every @jlaviole90/* package to GitHub Packages.
+# All five packages are bumped to the same version and published together.
+#
+# Trigger from the Actions tab: "Publish JS packages" -> Run workflow
+#   bump = patch | minor | major
+#
+# Consumers install by adding to their .npmrc:
+#   @jlaviole90:registry=https://npm.pkg.github.com
+#   //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+# where GITHUB_TOKEN is a PAT with read:packages scope.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Semver bump applied to all packages"
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: publish-js
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Bump, build, publish, tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@jlaviole90"
+          cache: "npm"
+
+      - name: Configure git identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Install deps
+        run: npm install --no-audit --no-fund
+
+      - name: Bump versions in lockstep
+        id: bump
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          set -euo pipefail
+          PKGS=(
+            packages/tracker
+            packages/tracker-next
+            packages/tracker-angular
+            packages/dashboard-react
+            packages/dashboard-angular
+          )
+          for p in "${PKGS[@]}"; do
+            (cd "$p" && npm version "$BUMP" --no-git-tag-version --allow-same-version)
+          done
+
+          # Internal packages (tracker-next, tracker-angular) pin @jlaviole90/tracker
+          # to an exact version. Keep those refs in sync with the new version.
+          node -e '
+            const fs = require("fs");
+            const v = require("./packages/tracker/package.json").version;
+            for (const p of [
+              "packages/tracker-next/package.json",
+              "packages/tracker-angular/package.json",
+            ]) {
+              const j = JSON.parse(fs.readFileSync(p, "utf8"));
+              if (j.dependencies && j.dependencies["@jlaviole90/tracker"]) {
+                j.dependencies["@jlaviole90/tracker"] = v;
+              }
+              fs.writeFileSync(p, JSON.stringify(j, null, 2) + "\n");
+            }
+          '
+
+          NEW_VERSION=$(node -p "require('./packages/tracker/package.json').version")
+          echo "version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Bumped all packages to v${NEW_VERSION}"
+
+      - name: Refresh lockfile after bump
+        run: npm install --no-audit --no-fund --package-lock-only
+
+      - name: Build all packages
+        run: npm run build --workspaces --if-present
+
+      - name: Publish @jlaviole90/tracker
+        working-directory: packages/tracker
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm publish
+
+      - name: Publish @jlaviole90/tracker-next
+        working-directory: packages/tracker-next
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm publish
+
+      - name: Publish @jlaviole90/tracker-angular
+        working-directory: packages/tracker-angular
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm publish
+
+      - name: Publish @jlaviole90/dashboard-react
+        working-directory: packages/dashboard-react
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm publish
+
+      - name: Publish @jlaviole90/dashboard-angular
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # ng-packagr emits a ready-to-publish directory at dist/; we publish
+        # from there so the consumer-facing package.json is the one ng-packagr
+        # generated (with main/module/types wired up) rather than the source.
+        run: |
+          set -euo pipefail
+          DIST=packages/dashboard-angular/dist
+          test -d "$DIST" || { echo "ng-packagr output missing at $DIST"; exit 1; }
+          cp packages/dashboard-angular/README.md "$DIST/" 2>/dev/null || true
+          cd "$DIST" && npm publish
+
+      - name: Commit version bump + tag
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          set -euo pipefail
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "release: js packages v${VERSION}"
+          fi
+          git tag -a "js-v${VERSION}" -m "JS packages v${VERSION}"
+          git push origin HEAD:${GITHUB_REF_NAME} --follow-tags

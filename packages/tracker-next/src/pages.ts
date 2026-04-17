@@ -3,7 +3,7 @@
 // Pages Router integration. Drop this into `pages/_app.tsx`:
 //
 //   import type { AppProps } from "next/app";
-//   import { WebalyticsPages } from "@webalytics/tracker-next/pages";
+//   import { WebalyticsPages } from "@jlaviole90/tracker-next/pages";
 //
 //   export default function App({ Component, pageProps }: AppProps) {
 //     return (
@@ -19,7 +19,7 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import { init, type InitConfig, type Tracker } from "@webalytics/tracker";
+import { init, type InitConfig, type Tracker } from "@jlaviole90/tracker";
 
 export interface WebalyticsPagesProps extends Omit<InitConfig, "siteId" | "host"> {
   siteId?: string;

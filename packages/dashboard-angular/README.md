@@ -1,11 +1,11 @@
-# @webalytics/dashboard-angular
+# @jlaviole90/dashboard-angular
 
 Standalone Angular 17+ components for displaying your Webalytics data.
-Mirrors [`@webalytics/dashboard-react`](../dashboard-react) one-to-one —
+Mirrors [`@jlaviole90/dashboard-react`](../dashboard-react) one-to-one —
 same types, same theming hooks, same visual language.
 
 ```bash
-npm install @webalytics/dashboard-angular
+npm install @jlaviole90/dashboard-angular
 ```
 
 ## Two modes
@@ -28,7 +28,7 @@ Then in your Angular app:
 ```ts
 // src/main.ts
 import { bootstrapApplication } from "@angular/platform-browser";
-import { provideWebalyticsDashboard } from "@webalytics/dashboard-angular";
+import { provideWebalyticsDashboard } from "@jlaviole90/dashboard-angular";
 import { AppComponent } from "./app/app.component";
 
 bootstrapApplication(AppComponent, {
@@ -55,7 +55,7 @@ API exposes:
 ```ts
 // src/main.server.ts
 import { bootstrapApplication } from "@angular/platform-browser";
-import { provideWebalyticsDashboard } from "@webalytics/dashboard-angular";
+import { provideWebalyticsDashboard } from "@jlaviole90/dashboard-angular";
 import { AppComponent } from "./app/app.component";
 
 bootstrapApplication(AppComponent, {
@@ -77,7 +77,7 @@ bootstrapApplication(AppComponent, {
 
 ```ts
 import { Component } from "@angular/core";
-import { DashboardComponent } from "@webalytics/dashboard-angular";
+import { DashboardComponent } from "@jlaviole90/dashboard-angular";
 
 @Component({
   selector: "app-analytics",
@@ -102,7 +102,7 @@ import {
   TimeseriesChartComponent,
   RealtimeComponent,
   WebVitalsCardsComponent,
-} from "@webalytics/dashboard-angular";
+} from "@jlaviole90/dashboard-angular";
 
 @Component({
   standalone: true,
@@ -152,5 +152,5 @@ Override CSS variables on `[data-wbx]`:
 | `WebVitalsCardsComponent` | `<wb-web-vitals-cards [data]>` — CWV tiles. |
 | `createClient(config)` | Standalone client (no DI). |
 
-See [`@webalytics/dashboard-react`](../dashboard-react) for conceptual
+See [`@jlaviole90/dashboard-react`](../dashboard-react) for conceptual
 docs — both packages surface identical semantics.

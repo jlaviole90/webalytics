@@ -1,7 +1,7 @@
 {
-  "name": "@webalytics/tracker-next",
+  "name": "@jlaviole90/tracker-next",
   "version": "0.1.0",
-  "description": "Next.js bindings for @webalytics/tracker. Supports App Router and Pages Router.",
+  "description": "Next.js bindings for @jlaviole90/tracker. Supports App Router and Pages Router.",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -34,7 +34,7 @@
     "react": ">=18"
   },
   "dependencies": {
-    "@webalytics/tracker": "0.1.0"
+    "@jlaviole90/tracker": "0.1.0"
   },
   "devDependencies": {
     "@testing-library/react": "^16.0.0",
@@ -48,6 +48,13 @@
     "vitest": "^2.0.5"
   },
   "publishConfig": {
-    "access": "public"
-  }
+    "access": "public",
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jlaviole90/webalytics.git",
+    "directory": "packages/tracker-next"
+  },
+  "homepage": "https://github.com/jlaviole90/webalytics/tree/main/packages/tracker-next#readme"
 }

@@ -2,11 +2,11 @@ import { DestroyRef, Injectable, inject } from "@angular/core";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { NavigationEnd, Router } from "@angular/router";
 import { filter } from "rxjs/operators";
-import { init as coreInit, type Tracker } from "@webalytics/tracker";
+import { init as coreInit, type Tracker } from "@jlaviole90/tracker";
 import { WEBALYTICS_CONFIG, type WebalyticsAngularConfig } from "./config.js";
 
 /**
- * Injectable wrapper around `@webalytics/tracker`. Provides a stable
+ * Injectable wrapper around `@jlaviole90/tracker`. Provides a stable
  * surface for Angular apps to track pageviews and custom events
  * without having to manage the tracker singleton themselves.
  *

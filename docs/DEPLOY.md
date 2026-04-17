@@ -168,10 +168,10 @@ triggers after CI passes on `main` (or manual dispatch), SSHes in,
 
 ## 5. Pointing a tracker at the box
 
-Any site you want tracked installs `@webalytics/tracker`:
+Any site you want tracked installs `@jlaviole90/tracker`:
 
 ```js
-import { init } from "@webalytics/tracker";
+import { init } from "@jlaviole90/tracker";
 
 init({
   host: "https://<ip>.nip.io",      // or https://analytics.example.com
@@ -183,7 +183,7 @@ Next.js:
 
 ```tsx
 // app/layout.tsx
-import { Webalytics } from "@webalytics/tracker-next";
+import { Webalytics } from "@jlaviole90/tracker-next";
 
 export default function RootLayout({ children }) {
   return (
@@ -227,7 +227,7 @@ The AWS box doesn't host a UI. A few options, ordered by friction:
   always-on admin UI. It's a standard Next.js app; point its env vars
   at the public API and you're done. No coupling to the service box.
 
-- **Coming later**: an optional `@webalytics/dashboard` package with
+- **Coming later**: an optional `@jlaviole90/dashboard` package with
   turnkey widgets/React components you can drop into your own site.
 
 ## 7. Swapping to your own domain later

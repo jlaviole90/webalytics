@@ -1,6 +1,6 @@
-# @webalytics/tracker-next
+# @jlaviole90/tracker-next
 
-Next.js adapter for [@webalytics/tracker](../tracker).
+Next.js adapter for [@jlaviole90/tracker](../tracker).
 
 - **App Router** — drop `<Webalytics />` into `app/layout.tsx`.
 - **Pages Router** — wrap `<Component />` in `_app.tsx` with `<WebalyticsPages />`.
@@ -12,14 +12,14 @@ never double-fire from the core tracker's History API patching.
 ## Install
 
 ```bash
-npm install @webalytics/tracker @webalytics/tracker-next
+npm install @jlaviole90/tracker @jlaviole90/tracker-next
 ```
 
 ## App Router
 
 ```tsx
 // app/layout.tsx
-import { Webalytics } from "@webalytics/tracker-next";
+import { Webalytics } from "@jlaviole90/tracker-next";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -43,7 +43,7 @@ static prerender works without you adding one.
 
 ```tsx
 "use client";
-import { getTracker, useWebalytics } from "@webalytics/tracker-next";
+import { getTracker, useWebalytics } from "@jlaviole90/tracker-next";
 
 export function SignupButton() {
   return <button onClick={() => getTracker().track("signup", { plan: "pro" })}>Sign up</button>;
@@ -57,7 +57,7 @@ subtrees.
 
 ```tsx
 // pages/_app.tsx
-import { WebalyticsPages } from "@webalytics/tracker-next/pages";
+import { WebalyticsPages } from "@jlaviole90/tracker-next/pages";
 
 export default function App({ Component, pageProps }) {
   return (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { getTracker } from "@webalytics/tracker-next";
+import { getTracker } from "@jlaviole90/tracker-next";
 
 export function TrackButton() {
   const [n, setN] = useState(0);
