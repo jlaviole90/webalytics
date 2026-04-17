@@ -17,6 +17,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	v1 "github.com/webalytics/webalytics/internal/api/v1"
+	"github.com/webalytics/webalytics/internal/auth"
 	"github.com/webalytics/webalytics/internal/config"
 	"github.com/webalytics/webalytics/internal/enrich"
 	"github.com/webalytics/webalytics/internal/ingest"
@@ -77,6 +78,7 @@ func run() error {
 
 	// Storage handles
 	tokenStore := pgstore.NewTokenStore(pools.App)
+	publicTokenStore := pgstore.NewPublicTokenStore(pools.App)
 	siteStore := pgstore.NewSiteStore(pools.App)
 	domainStore := pgstore.NewDomainStore(pools.App)
 	eventDefStore := pgstore.NewEventDefStore(pools.App)
@@ -148,17 +150,28 @@ func run() error {
 		})
 	})
 
-	// /v1 authenticated surface
+	// /v1 authenticated (admin / full) surface
+	v1Deps := v1.Deps{
+		TokenResolver: tokenStore,
+		Sites:         siteStore,
+		Domains:       domainStore,
+		Events:        eventDefStore,
+		Tokens:        tokenStore,
+		Stats:         statsStore,
+		SiteCache:     siteCache,
+	}
 	r.Route("/v1", func(r chi.Router) {
-		v1.Mount(r, v1.Deps{
-			TokenResolver: tokenStore,
-			Sites:         siteStore,
-			Domains:       domainStore,
-			Events:        eventDefStore,
-			Tokens:        tokenStore,
-			Stats:         statsStore,
-			SiteCache:     siteCache,
-		})
+		v1.Mount(r, v1Deps)
+	})
+
+	// /public/v1 — browser-safe, read-only, site-scoped embed surface.
+	// Mounted separately from /v1 because the middleware, CORS policy,
+	// and available endpoints are deliberately narrower. Admin tokens
+	// CANNOT reach these handlers via /public/v1; public tokens CANNOT
+	// reach /v1. See internal/auth/public.go for the full policy.
+	r.Route("/public/v1/sites/{siteId}", func(r chi.Router) {
+		r.Use(auth.PublicTokenMiddleware(publicTokenStore))
+		v1.MountStatsSubtree(r, v1Deps)
 	})
 
 	// Run

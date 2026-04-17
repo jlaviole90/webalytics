@@ -8,28 +8,70 @@ same types, same theming hooks, same visual language.
 npm install @webalytics/dashboard-angular
 ```
 
-> **Important**: these components make authenticated requests with a
-> bearer token. Run them in an **Angular Universal SSR context** (or a
-> BFF you control) so the token never reaches the browser.
+## Two modes
 
-## Setup
+### 1. Browser-safe (plain SPA — recommended)
+
+Use a **public embed token** (`wb_pub_live_*`). These are narrow,
+read-only, site-scoped credentials, optionally bound to a set of
+browser Origins. Safe to ship to the browser.
+
+Mint one with the provisioning script on your backend:
+
+```bash
+make public-token ORG_SLUG=jlav \
+  ALLOWED_ORIGINS='https://jlav.io,https://www.jlav.io'
+```
+
+Then in your Angular app:
 
 ```ts
-// main.server.ts
+// src/main.ts
 import { bootstrapApplication } from "@angular/platform-browser";
 import { provideWebalyticsDashboard } from "@webalytics/dashboard-angular";
-import { AppComponent } from "./app.component";
+import { AppComponent } from "./app/app.component";
+
+bootstrapApplication(AppComponent, {
+  providers: [
+    provideWebalyticsDashboard({
+      kind:        "public",
+      host:        "https://analytics.example.com",
+      publicToken: "wb_pub_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      siteId:      "11111111-2222-3333-4444-555555555555",
+    }),
+  ],
+});
+```
+
+No SSR required. Token is restricted to your site's origins by the
+server, and only exposes aggregate, PII-free stats.
+
+### 2. Server-side (Angular Universal / BFF)
+
+If you already run Angular Universal, you can use the full admin bearer
+token instead — same components, full access to every query the admin
+API exposes:
+
+```ts
+// src/main.server.ts
+import { bootstrapApplication } from "@angular/platform-browser";
+import { provideWebalyticsDashboard } from "@webalytics/dashboard-angular";
+import { AppComponent } from "./app/app.component";
 
 bootstrapApplication(AppComponent, {
   providers: [
     provideWebalyticsDashboard({
       host:   process.env["WEBALYTICS_API_HOST"]!,
-      token:  process.env["WEBALYTICS_API_TOKEN"]!,
+      token:  process.env["WEBALYTICS_API_TOKEN"]!,     // wb_pat_live_*, server-side only
       siteId: process.env["WEBALYTICS_SITE_UUID"]!,
     }),
   ],
 });
 ```
+
+> **Never pass `token` (admin bearer) into a browser-rendered app.**
+> It grants full org access. If you're not running Universal, use the
+> browser-safe `publicToken` mode above.
 
 ## One-component demo
 

@@ -458,6 +458,34 @@ See [`packages/dashboard-react/src/client.ts`](packages/dashboard-react/src/clie
 for typed request/response shapes (those types are published as part of
 the dashboard packages).
 
+### Browser-safe query API — `GET /public/v1/*`
+
+A parallel, read-only surface for embedding dashboards directly in a
+browser. Uses a narrow **public embed token** (`wb_pub_live_*`) instead
+of the full admin bearer. Unlike `/v1`, these endpoints:
+
+- Are scoped to one site (the URL `{siteId}` must match the token's site
+  or the request is a 403).
+- Enforce an optional Origin allowlist on the token via CORS preflight
+  *and* a server-side re-check.
+- Expose only aggregate stats — no IPs, no UA strings, no session or
+  visitor IDs reach the wire.
+- Cannot reach admin surfaces; `/public/v1/tokens` etc. simply don't
+  exist.
+
+| Method | Path                                              | Auth                              |
+| ------ | ------------------------------------------------- | --------------------------------- |
+| GET    | `/public/v1/sites/{id}/stats/realtime`            | `Authorization: Bearer wb_pub_live_...` |
+| GET    | `/public/v1/sites/{id}/stats/summary`             | same                              |
+| GET    | `/public/v1/sites/{id}/stats/timeseries`          | same                              |
+| GET    | `/public/v1/sites/{id}/stats/breakdown`           | same                              |
+| GET    | `/public/v1/sites/{id}/stats/web-vitals`          | same                              |
+
+Mint a token with `make public-token` (or `make prod-public-token` if
+you're targeting a deployed instance); see
+[`deploy/provision-public-token.sh`](deploy/provision-public-token.sh)
+for the full contract.
+
 ---
 
 ## Multi-tenancy

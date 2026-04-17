@@ -12,6 +12,9 @@ deploy/tenants/
 .env
 .env.local
 
+# Personal notes / ops runbooks
+*.local.md
+
 # Playwright
 test/browser/test-results/
 test/browser/playwright-report/

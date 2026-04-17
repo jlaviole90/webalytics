@@ -54,17 +54,29 @@ func Mount(r chi.Router, d Deps) {
 		r.Delete("/event-definitions/{eventName}", deleteEventDef(d))
 
 		// Stats
-		r.Get("/stats/summary", statsSummary(d))
-		r.Get("/stats/timeseries", statsTimeseries(d))
-		r.Get("/stats/breakdown", statsBreakdown(d))
-		r.Get("/stats/web-vitals", statsWebVitals(d))
-		r.Get("/stats/realtime", statsRealtime(d))
+		MountStatsSubtree(r, d)
 	})
 
 	// Tokens
 	r.Get("/tokens", listTokens(d))
 	r.Post("/tokens", createToken(d))
 	r.Delete("/tokens/{tokenId}", revokeToken(d))
+}
+
+// MountStatsSubtree registers the read-only /stats/* endpoints onto the
+// given router. Exposed so /public/v1 can mount the same handlers behind
+// the public-token middleware without copy-pasting route registrations.
+//
+// The caller is responsible for:
+//   - having the {siteId} URL param in scope for handler use,
+//   - installing auth middleware upstream (org_id must be in context by
+//     the time a handler runs).
+func MountStatsSubtree(r chi.Router, d Deps) {
+	r.Get("/stats/summary", statsSummary(d))
+	r.Get("/stats/timeseries", statsTimeseries(d))
+	r.Get("/stats/breakdown", statsBreakdown(d))
+	r.Get("/stats/web-vitals", statsWebVitals(d))
+	r.Get("/stats/realtime", statsRealtime(d))
 }
 
 // ----------------------------------------------------------------------------

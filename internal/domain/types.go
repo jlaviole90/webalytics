@@ -49,6 +49,30 @@ type APIToken struct {
 	RevokedAt      *time.Time
 }
 
+// PublicToken is a narrow, browser-safe, read-only credential scoped to a
+// single site. Unlike APIToken it can legitimately ship to the browser
+// because:
+//
+//   - It can only reach /public/v1/... endpoints (mounted separately; the
+//     admin /v1 router refuses it).
+//   - Those endpoints are read-only aggregates (no PII, no session ids,
+//     no UA strings, no IPs).
+//   - It is bound to exactly one SiteID; SiteID mismatch on the URL is a
+//     403 even if the token is otherwise valid.
+//   - It optionally carries an AllowedOrigins allowlist, enforced via CORS
+//     preflight + server-side re-check of the Origin header.
+type PublicToken struct {
+	ID             uuid.UUID
+	SiteID         uuid.UUID
+	OrganizationID uuid.UUID
+	Name           string
+	AllowedOrigins []string
+	ExpiresAt      *time.Time
+	CreatedAt      time.Time
+	LastUsedAt     *time.Time
+	RevokedAt      *time.Time
+}
+
 // Event is the enriched event ready to insert into ClickHouse.
 // Field order intentionally mirrors the column order of
 // `migrations/clickhouse/0001_events.sql`.

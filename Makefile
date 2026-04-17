@@ -33,7 +33,8 @@
         build test test-race e2e seed reset-data fmt vet tidy \
         js-install js-build js-test js-size \
         browser-install browser-e2e \
-        tf-init tf-plan tf-apply tf-destroy tf-output deploy prod-logs prod-ssh
+        tf-init tf-plan tf-apply tf-destroy tf-output deploy prod-logs prod-ssh \
+        provision public-token prod-public-token
 
 COMPOSE ?= docker compose
 
@@ -86,6 +87,32 @@ provision:
 	@test -n "$(SITE_NAME)" || (echo "SITE_NAME required" && exit 1)
 	@test -n "$(DOMAINS)" || (echo "DOMAINS required" && exit 1)
 	ORG_SLUG=$(ORG_SLUG) ORG_NAME="$(ORG_NAME)" SITE_NAME="$(SITE_NAME)" DOMAINS="$(DOMAINS)" bash deploy/provision-site.sh
+
+# Mint a browser-safe, read-only public embed token for an existing tenant.
+# Example:
+#   make public-token ORG_SLUG=jlav ALLOWED_ORIGINS='https://jlav.io,https://www.jlav.io'
+# Leave ALLOWED_ORIGINS empty to mint an unbound "share link" token.
+public-token:
+	@test -n "$(ORG_SLUG)" || (echo "ORG_SLUG=<slug> [ALLOWED_ORIGINS=...] [PUBLIC_TOKEN_NAME=embed] make public-token" && exit 1)
+	ORG_SLUG=$(ORG_SLUG) \
+		ALLOWED_ORIGINS="$(ALLOWED_ORIGINS)" \
+		PUBLIC_TOKEN_NAME="$(PUBLIC_TOKEN_NAME)" \
+		bash deploy/provision-public-token.sh
+
+# One-shot variant that SSHes into the Lightsail box and mints the token
+# there. Matches the ergonomics of prod-ssh / prod-logs.
+# Example:
+#   HOST=ubuntu@44.198.214.153 ORG_SLUG=jlav \
+#     ALLOWED_ORIGINS='https://jlav.io,https://www.jlav.io' \
+#     make prod-public-token
+prod-public-token:
+	@test -n "$(HOST)" || (echo "HOST=ubuntu@<ip> ORG_SLUG=... make prod-public-token" && exit 1)
+	@test -n "$(ORG_SLUG)" || (echo "ORG_SLUG required" && exit 1)
+	ssh $(HOST) "cd /opt/webalytics && sudo \
+		ORG_SLUG=$(ORG_SLUG) \
+		ALLOWED_ORIGINS='$(ALLOWED_ORIGINS)' \
+		PUBLIC_TOKEN_NAME='$(PUBLIC_TOKEN_NAME)' \
+		bash deploy/provision-public-token.sh"
 
 # Wipes only the event/analytics data out of ClickHouse, leaving the api,
 # seed config, users/sites intact. Useful when dashboard counts have been

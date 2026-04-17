@@ -13,13 +13,19 @@ import type {
 } from "./types.js";
 
 /**
- * Config for {@link createClient}. The bearer token is a secret and MUST
- * only live on the server. Never pass this client into a Client Component.
+ * Server-side config. The bearer `token` is secret and MUST NOT ship to
+ * the browser. Pair this with React Server Components, a Next.js route
+ * handler, or a BFF you control.
+ *
+ * If you want a browser-safe variant, use {@link PublicClientConfig}
+ * and {@link createClient} below — it swaps the admin bearer for a
+ * narrow read-only embed token and routes to `/public/v1`.
  */
-export interface ClientConfig {
+export interface ServerClientConfig {
+  kind?: "server";
   /** Base URL of your Webalytics deployment, e.g. "https://analytics.example.com". */
   host: string;
-  /** Server-side bearer token. Do not expose to the browser. */
+  /** Server-side admin bearer token (wb_pat_live_*). Do NOT expose to browser. */
   token: string;
   /** Site UUID (not the public wb_live_* id) this client queries by default. */
   siteId: string;
@@ -36,6 +42,29 @@ export interface ClientConfig {
    */
   revalidateSeconds?: number;
 }
+
+/**
+ * Browser-safe config. The `publicToken` is a narrow, read-only credential
+ * scoped to exactly one site; see `@webalytics/dashboard-react` README and
+ * `deploy/provision-public-token.sh` for how to mint one.
+ *
+ * Safe to import into Client Components. Routes to `/public/v1/...`.
+ */
+export interface PublicClientConfig {
+  kind: "public";
+  /** Base URL of your Webalytics deployment, e.g. "https://analytics.example.com". */
+  host: string;
+  /** Browser-safe embed token (wb_pub_live_*). Safe to ship to the browser. */
+  publicToken: string;
+  /** Site UUID this token is bound to. Mismatch is a 403. */
+  siteId: string;
+  /** Custom fetch implementation (defaults to global fetch). */
+  fetch?: typeof fetch;
+  /** Next.js revalidation hint; ignored outside Next RSC context. */
+  revalidateSeconds?: number;
+}
+
+export type ClientConfig = ServerClientConfig | PublicClientConfig;
 
 export interface DashboardClient {
   readonly config: ClientConfig;
@@ -74,7 +103,17 @@ export interface DashboardClient {
 }
 
 export function createClient(config: ClientConfig): DashboardClient {
-  assertServerOnly();
+  const isPublic = config.kind === "public";
+  const bearer = isPublic ? config.publicToken : config.token;
+  // Public tokens route under /public/v1; admin tokens under /v1.
+  const basePath = isPublic ? "/public/v1" : "/v1";
+
+  // Admin mode must never run in a browser — fail loudly. Public mode
+  // is explicitly browser-safe.
+  if (!isPublic) {
+    assertServerOnly();
+  }
+
   const f = config.fetch ?? fetch;
   const base = config.host.replace(/\/+$/, "");
 
@@ -83,7 +122,7 @@ export function createClient(config: ClientConfig): DashboardClient {
     const res = await f(url, {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${config.token}`,
+        Authorization: `Bearer ${bearer}`,
         Accept: "application/json",
       },
       signal,
@@ -94,8 +133,6 @@ export function createClient(config: ClientConfig): DashboardClient {
         : {}),
     });
     if (!res.ok) {
-      // Try to surface the API's JSON error shape, but fall back
-      // gracefully if the body isn't JSON.
       let detail = "";
       try {
         const body = (await res.json()) as { error?: { message?: string } };
@@ -115,12 +152,15 @@ export function createClient(config: ClientConfig): DashboardClient {
   return {
     config,
     realtime({ siteId, signal } = {}) {
-      return call<RealtimeResponse>(`/v1/sites/${resolveSite(siteId)}/stats/realtime`, signal);
+      return call<RealtimeResponse>(
+        `${basePath}/sites/${resolveSite(siteId)}/stats/realtime`,
+        signal,
+      );
     },
     summary(window, { siteId, filters, signal } = {}) {
       const qs = toQS({ ...expandWindow(window), ...filtersToQS(filters) });
       return call<SummaryResponse>(
-        `/v1/sites/${resolveSite(siteId)}/stats/summary?${qs}`,
+        `${basePath}/sites/${resolveSite(siteId)}/stats/summary?${qs}`,
         signal,
       );
     },
@@ -132,7 +172,7 @@ export function createClient(config: ClientConfig): DashboardClient {
         ...filtersToQS(filters),
       });
       return call<TimeseriesResponse>(
-        `/v1/sites/${resolveSite(siteId)}/stats/timeseries?${qs}`,
+        `${basePath}/sites/${resolveSite(siteId)}/stats/timeseries?${qs}`,
         signal,
       );
     },
@@ -146,7 +186,7 @@ export function createClient(config: ClientConfig): DashboardClient {
         ...filtersToQS(filters),
       });
       return call<BreakdownResponse>(
-        `/v1/sites/${resolveSite(siteId)}/stats/breakdown?${qs}`,
+        `${basePath}/sites/${resolveSite(siteId)}/stats/breakdown?${qs}`,
         signal,
       );
     },
@@ -157,7 +197,7 @@ export function createClient(config: ClientConfig): DashboardClient {
         ...filtersToQS(filters),
       });
       return call<WebVitalsResponse>(
-        `/v1/sites/${resolveSite(siteId)}/stats/web-vitals?${qs}`,
+        `${basePath}/sites/${resolveSite(siteId)}/stats/web-vitals?${qs}`,
         signal,
       );
     },
@@ -220,17 +260,22 @@ function toQS(parts: Record<string, string | number | undefined>): string {
 }
 
 /**
- * Guard against accidental shipping of the bearer token to a browser.
+ * Guard against accidental shipping of the ADMIN bearer token to a browser.
  * Not fool-proof, but it fails loudly in the most common mistake case
- * (importing createClient into a "use client" module).
+ * (importing a server client into a "use client" module).
+ *
+ * Public clients (kind: "public") skip this check — they are explicitly
+ * browser-safe.
  */
 function assertServerOnly() {
   if (typeof window !== "undefined") {
     throw new Error(
       [
-        "@webalytics/dashboard-react: createClient() must only be called on the server.",
+        "@webalytics/dashboard-react: createClient({ token }) must only be called on the server.",
         "You appear to be running it in a browser context, which would leak your",
-        'bearer token. Move the import into a Server Component or a route handler.',
+        "admin bearer token. Either move the import into a Server Component / route",
+        "handler, or switch to a public embed token: createClient({ kind: 'public',",
+        "publicToken: 'wb_pub_live_...' }).",
       ].join(" "),
     );
   }

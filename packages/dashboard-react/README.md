@@ -9,7 +9,12 @@ Component-native.
 npm install @webalytics/dashboard-react
 ```
 
-## One-component demo
+## Two modes
+
+### 1. Server-rendered (Next.js App Router, Remix, RSC) — admin token
+
+The common path. The bearer token stays on the server; every render is
+SSR, no auth leaks to the browser.
 
 ```tsx
 // app/analytics/page.tsx — Next.js App Router
@@ -28,6 +33,47 @@ export default function AnalyticsPage() {
   return <Dashboard client={client} window="7d" />;
 }
 ```
+
+The client will throw loudly if you accidentally import it into a
+`"use client"` module — the token staying server-side is enforced at
+runtime, not just encouraged by documentation.
+
+### 2. Browser-safe (plain React / CRA / Vite SPA) — public embed token
+
+Use a **public embed token** (`wb_pub_live_*`) instead of the admin
+bearer. These are narrow, read-only, scoped to one site, and
+optionally bound to a set of browser Origins. Safe to ship in
+client-side JS.
+
+Mint one on your backend:
+
+```bash
+make public-token ORG_SLUG=jlav \
+  ALLOWED_ORIGINS='https://jlav.io,https://www.jlav.io'
+```
+
+Then in your React app:
+
+```tsx
+"use client";
+import { createClient, Dashboard } from "@webalytics/dashboard-react";
+
+const client = createClient({
+  kind:        "public",
+  host:        "https://analytics.example.com",
+  publicToken: "wb_pub_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  siteId:      "11111111-2222-3333-4444-555555555555",
+});
+
+export default function AnalyticsPage() {
+  return <Dashboard client={client} window="7d" />;
+}
+```
+
+Because components fetch inside `await`, you'll want to wrap them in a
+Suspense boundary for browser-side use, or switch to React Query /
+`useEffect`-based data fetching and feed the data into the primitives
+manually (see "Compose the primitives" below).
 
 That's it — you get summary cards, a realtime counter, a visitors
 timeseries, four breakdown lists, and Core Web Vitals in the default
