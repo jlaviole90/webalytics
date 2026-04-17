@@ -5,8 +5,8 @@ import {
   inject,
   makeEnvironmentProviders,
 } from "@angular/core";
-import { WEBALYTICS_CONFIG, type WebalyticsAngularConfig } from "./config.js";
-import { WebalyticsService } from "./service.js";
+import { WEBALYTICS_CONFIG, type WebalyticsAngularConfig } from "./config";
+import { WebalyticsService } from "./service";
 
 /**
  * Application-level provider for the Webalytics tracker.

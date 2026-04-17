@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { NavigationEnd, Router } from "@angular/router";
 import { filter } from "rxjs/operators";
 import { init as coreInit, type Tracker } from "@jlaviole90/tracker";
-import { WEBALYTICS_CONFIG, type WebalyticsAngularConfig } from "./config.js";
+import { WEBALYTICS_CONFIG, type WebalyticsAngularConfig } from "./config";
 
 /**
  * Injectable wrapper around `@jlaviole90/tracker`. Provides a stable

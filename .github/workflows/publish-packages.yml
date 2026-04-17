@@ -127,10 +127,17 @@ jobs:
         run: npm publish
 
       - name: Publish @jlaviole90/tracker-angular
-        working-directory: packages/tracker-angular
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm publish
+        # Also an ng-packagr build (partial Ivy) — must publish from the
+        # dist/ payload so Angular consumers get ɵɵngDeclareInjectable
+        # instead of raw runtime decorators that force JIT.
+        run: |
+          set -euo pipefail
+          DIST=packages/tracker-angular/dist
+          test -d "$DIST" || { echo "ng-packagr output missing at $DIST"; exit 1; }
+          cp packages/tracker-angular/README.md "$DIST/" 2>/dev/null || true
+          cd "$DIST" && npm publish
 
       - name: Publish @jlaviole90/dashboard-react
         working-directory: packages/dashboard-react
