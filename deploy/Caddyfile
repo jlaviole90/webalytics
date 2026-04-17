@@ -8,6 +8,7 @@
 # This box is API-only. Routes:
 #   /collect, /collect/**          -> Go api (tracker ingest)
 #   /v1/**                         -> Go api (authenticated query API)
+#   /public/v1/**                  -> Go api (browser-safe public embed API)
 #   /healthz                       -> Go api (health)
 #   everything else                -> 404 JSON (no UI hosted here)
 #
@@ -37,7 +38,7 @@
 	# `handle` blocks are mutually exclusive; whichever matches first
 	# runs, and its contents are self-contained. Keeps the fallback
 	# from swallowing /healthz etc.
-	@api path /collect /collect/* /v1/* /healthz
+	@api path /collect /collect/* /v1/* /public/v1/* /healthz
 	handle @api {
 		reverse_proxy api:8080
 	}
