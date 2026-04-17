@@ -1,6 +1,15 @@
 import { CommonModule } from "@angular/common";
-import { ChangeDetectionStrategy, Component, Input, ViewEncapsulation, inject } from "@angular/core";
-import { Observable, combineLatest, from, map } from "rxjs";
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  Input,
+  OnInit,
+  ViewEncapsulation,
+  inject,
+} from "@angular/core";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { Observable, combineLatest, from, map, switchMap, timer, shareReplay } from "rxjs";
 import type { Filters, WindowSpec } from "../types";
 import { WebalyticsDashboardService } from "../service";
 import { WBX_CSS } from "../theme";
@@ -10,10 +19,12 @@ import { TimeseriesChartComponent } from "./timeseries-chart.component";
 import { TopListComponent } from "./top-list.component";
 import { WebVitalsCardsComponent } from "./web-vitals-cards.component";
 
+const DEFAULT_REFRESH_MS = 30_000;
+
 /**
  * Opinionated full-dashboard layout. Fetches all five queries in
  * parallel via the `WebalyticsDashboardService` and shows the result
- * once everything arrives.
+ * once everything arrives. Auto-refreshes every `refreshMs` (default 30s).
  *
  * For SSR (Angular Universal), render this on the server so the bearer
  * token stays out of the browser. For custom layouts, compose the
@@ -61,7 +72,7 @@ import { WebVitalsCardsComponent } from "./web-vitals-cards.component";
     </div>
   `,
 })
-export class DashboardComponent {
+export class DashboardComponent implements OnInit {
   /** Time window for all queries. Defaults to 7d. */
   @Input() window: WindowSpec = "7d";
 
@@ -71,59 +82,64 @@ export class DashboardComponent {
   /** Optional dimension filters, applied to every query that supports them. */
   @Input() filters?: Filters;
 
-  private readonly svc = inject(WebalyticsDashboardService);
+  /** Auto-refresh interval in ms. Set to 0 to disable. */
+  @Input() refreshMs = DEFAULT_REFRESH_MS;
 
-  // Kick off all five fetches in parallel and join them. Rendered via
-  // | async so the template handles loading/error declaratively; if any
-  // query fails the user sees "Loading analytics…" indefinitely — for
-  // that reason we recommend wrapping this in your own error boundary
-  // (or calling the service methods yourself for finer-grained control).
-  readonly view$: Observable<View> = combineLatest([
-    from(this.svc.client.summary(this.window, { siteId: this.siteId, filters: this.filters })),
-    from(this.svc.client.realtime({ siteId: this.siteId })),
-    from(
-      this.svc.client.timeseries(this.window, "visitors", this.defaultInterval(this.window), {
+  private readonly svc = inject(WebalyticsDashboardService);
+  private readonly destroyRef = inject(DestroyRef);
+
+  view$!: Observable<View>;
+
+  ngOnInit(): void {
+    const tick$ = this.refreshMs > 0
+      ? timer(0, this.refreshMs)
+      : timer(0);
+
+    this.view$ = tick$.pipe(
+      switchMap(() => this.fetchAll()),
+      shareReplay(1),
+      takeUntilDestroyed(this.destroyRef),
+    );
+  }
+
+  private fetchAll(): Observable<View> {
+    return combineLatest([
+      from(this.svc.client.summary(this.window, { siteId: this.siteId, filters: this.filters })),
+      from(this.svc.client.realtime({ siteId: this.siteId })),
+      from(this.svc.client.timeseries(this.window, "visitors", this.defaultInterval(this.window), {
         siteId: this.siteId,
         filters: this.filters,
-      }),
-    ),
-    from(
-      this.svc.client.breakdown(this.window, "path", {
+      })),
+      from(this.svc.client.breakdown(this.window, "path", {
         siteId: this.siteId,
         filters: this.filters,
-      }),
-    ),
-    from(
-      this.svc.client.breakdown(this.window, "referrer_host", {
+      })),
+      from(this.svc.client.breakdown(this.window, "referrer_host", {
         siteId: this.siteId,
         filters: this.filters,
-      }),
-    ),
-    from(
-      this.svc.client.breakdown(this.window, "country", {
+      })),
+      from(this.svc.client.breakdown(this.window, "country", {
         siteId: this.siteId,
         filters: this.filters,
-      }),
-    ),
-    from(
-      this.svc.client.breakdown(this.window, "device", {
+      })),
+      from(this.svc.client.breakdown(this.window, "device", {
         siteId: this.siteId,
         filters: this.filters,
-      }),
-    ),
-    from(this.svc.client.webVitals(this.window, { siteId: this.siteId, filters: this.filters })),
-  ]).pipe(
-    map(([summary, realtime, timeseries, pages, referrers, countries, devices, vitals]) => ({
-      summary,
-      realtime,
-      timeseries,
-      pages,
-      referrers,
-      countries,
-      devices,
-      vitals,
-    })),
-  );
+      })),
+      from(this.svc.client.webVitals(this.window, { siteId: this.siteId, filters: this.filters })),
+    ]).pipe(
+      map(([summary, realtime, timeseries, pages, referrers, countries, devices, vitals]) => ({
+        summary,
+        realtime,
+        timeseries,
+        pages,
+        referrers,
+        countries,
+        devices,
+        vitals,
+      })),
+    );
+  }
 
   private defaultInterval(w: WindowSpec): "minute" | "hour" | "day" {
     if (w === "1h") return "minute";

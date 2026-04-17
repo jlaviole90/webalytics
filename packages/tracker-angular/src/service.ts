@@ -54,8 +54,8 @@ export class WebalyticsService {
           filter((e): e is NavigationEnd => e instanceof NavigationEnd),
           takeUntilDestroyed(this.destroyRef),
         )
-        .subscribe((e) => {
-          this.tracker?.pageview(e.urlAfterRedirects);
+        .subscribe(() => {
+          this.tracker?.pageview();
         });
     }
 

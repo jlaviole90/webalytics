@@ -107,9 +107,9 @@ Universal)                          |    +-- /v1/sites/* --> Postgres RLS  |
 site + Origin/Referer → rate-limit in Redis → enrich (IP/UA/geo) → batch
 → flush to ClickHouse every 250ms or 500 rows.
 
-**Cold path (query):** dashboard SSR → `/v1/stats/*` with bearer token →
-resolve org from token → build ClickHouse query with mandatory tenant
-predicate → return JSON.
+**Cold path (query):** dashboard SSR → `/v1/stats/*` (bearer token) or
+`/public/v1/stats/*` (public embed token) → resolve org from token →
+build ClickHouse query with mandatory tenant predicate → return JSON.
 
 Full architecture doc: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (~800 lines
 covering data model, session derivation, MVs, funnels, retention, and more).
@@ -157,9 +157,10 @@ webalytics/
 ├── deploy/
 │   ├── Caddyfile             Production reverse proxy + auto-HTTPS config
 │   ├── Dockerfile            Multi-stage build → distroless static binary
+│   ├── onboard.sh            Unified provisioning: org + site + tokens in one pass
 │   ├── seed.sh               One-shot bootstrap: first org + site + token
-│   ├── provision-site.sh     Provision additional tenants (multi-client)
 │   ├── migrate.sh            Runs postgres + clickhouse migrations
+│   ├── tenants/              Per-client credential files (gitignored, 0600)
 │   └── postgres-init/        docker-entrypoint-initdb.d (RLS roles, grants)
 │
 ├── infra/terraform/          Lightsail + static IP + firewall + SSH key
@@ -254,22 +255,16 @@ curl -H "Authorization: Bearer $WEBALYTICS_TOKEN" \
 ## NPM packages
 
 All packages live under `packages/` as an npm workspace and are published
-to **GitHub Packages** under the `@jlaviole90/*` scope. Releases are cut
-in lockstep (all five packages → same version) via the
+to **public npm** under the `@jlaviole90/*` scope. No auth, no `.npmrc`,
+no tokens required to install. Releases are cut in lockstep (all five
+packages → same version) via the
 [Publish JS packages](.github/workflows/publish-packages.yml) workflow —
 GitHub Actions → Run workflow → pick `patch` / `minor` / `major`.
 
-Consumers install via `.npmrc`:
-
+```bash
+npm install @jlaviole90/tracker            # just works
+npm install @jlaviole90/dashboard-react    # just works
 ```
-@jlaviole90:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
-```
-
-with `GITHUB_TOKEN` set to a classic PAT with `read:packages` scope. Then
-regular `npm install @jlaviole90/tracker` etc. works. See
-[`PROVISIONING.local.md`](./PROVISIONING.local.md) for the full release +
-consume flow.
 
 ### `@jlaviole90/tracker` — vanilla browser tracker
 
@@ -368,11 +363,14 @@ Drop-in components that render Webalytics data as a Vercel-style dashboard.
 All components are RSC-native (async Server Components); bearer tokens
 stay on the server. Zero chart dependencies — charts are inline SVG.
 
+**Server-side (bearer token stays secret):**
+
 ```tsx
 // app/analytics/page.tsx
 import { createClient, Dashboard } from "@jlaviole90/dashboard-react";
 
 const client = createClient({
+  kind:   "server",
   host:   process.env.WEBALYTICS_API_HOST!,
   token:  process.env.WEBALYTICS_API_TOKEN!,
   siteId: process.env.WEBALYTICS_SITE_UUID!,
@@ -381,6 +379,19 @@ const client = createClient({
 export default function AnalyticsPage() {
   return <Dashboard client={client} window="7d" />;
 }
+```
+
+**Browser-safe (public embed token):**
+
+```tsx
+import { createClient, Dashboard } from "@jlaviole90/dashboard-react";
+
+const client = createClient({
+  kind:        "public",
+  host:        "https://analytics.example.com",
+  publicToken: "wb_pub_live_...",
+  siteId:      "wb_live_...",   // public site ID — resolved server-side
+});
 ```
 
 Composable primitives: `<SummaryCards />`, `<Realtime />`,
@@ -394,17 +405,31 @@ Mirror of the React package. Built with `ng-packagr` (Angular Package
 Format, Ivy partial compilation). Use from Angular Universal SSR so the
 bearer token stays server-side.
 
+**Server-side (Angular Universal SSR):**
+
 ```ts
 // main.server.ts
 bootstrapApplication(AppComponent, {
   providers: [
     provideWebalyticsDashboard({
+      kind:   "server",
       host:   process.env["WEBALYTICS_API_HOST"]!,
       token:  process.env["WEBALYTICS_API_TOKEN"]!,
       siteId: process.env["WEBALYTICS_SITE_UUID"]!,
     }),
   ],
 });
+```
+
+**Browser-safe (public embed token):**
+
+```ts
+provideWebalyticsDashboard({
+  kind:        "public",
+  host:        "https://analytics.example.com",
+  publicToken: "wb_pub_live_...",
+  siteId:      "wb_live_...",   // public site ID — resolved server-side
+}),
 ```
 
 ```ts
@@ -479,8 +504,10 @@ A parallel, read-only surface for embedding dashboards directly in a
 browser. Uses a narrow **public embed token** (`wb_pub_live_*`) instead
 of the full admin bearer. Unlike `/v1`, these endpoints:
 
-- Are scoped to one site (the URL `{siteId}` must match the token's site
+- Are scoped to one site (the URL `{id}` must match the token's site
   or the request is a 403).
+- Accept either the site UUID or the `wb_live_*` public site ID as the
+  `{id}` path parameter — the server resolves it automatically.
 - Enforce an optional Origin allowlist on the token via CORS preflight
   *and* a server-side re-check.
 - Expose only aggregate stats — no IPs, no UA strings, no session or
@@ -496,10 +523,8 @@ of the full admin bearer. Unlike `/v1`, these endpoints:
 | GET    | `/public/v1/sites/{id}/stats/breakdown`           | same                              |
 | GET    | `/public/v1/sites/{id}/stats/web-vitals`          | same                              |
 
-Mint a token with `make public-token` (or `make prod-public-token` if
-you're targeting a deployed instance); see
-[`deploy/provision-public-token.sh`](deploy/provision-public-token.sh)
-for the full contract.
+Tokens are automatically provisioned by `make onboard-remote`; see
+[`deploy/onboard.sh`](deploy/onboard.sh) for the full contract.
 
 ---
 
@@ -526,26 +551,32 @@ one domain, and one API token. Use this for your own stack.
 
 For an agency/client setup, provision each client as their own
 organization — that guarantees they get a separate bearer token and can
-never see each other's data:
+never see each other's data. One command does everything (org, site,
+domains, admin token, and browser-safe public token):
 
 ```bash
-# Locally
-make provision ORG_SLUG=acme ORG_NAME="Acme Corp" \
-  SITE_NAME="Acme Marketing" DOMAINS="acme.com,www.acme.com"
-
-# Or on the production box
-ssh ubuntu@<ip>
-cd /opt/webalytics && set -a && source .env.prod && set +a
-ORG_SLUG=acme ORG_NAME="Acme Corp" \
-  SITE_NAME="Acme Marketing" DOMAINS="acme.com" \
-  bash deploy/provision-site.sh
+# From your laptop — SSHes into the box, provisions, and pulls credentials back
+HOST=ubuntu@<ip> \
+  ORG_SLUG=acme ORG_NAME="Acme Corp" \
+  SITE_NAME="Acme Marketing" DOMAINS="acme.com,www.acme.com" \
+  make onboard-remote
 ```
 
-The script prints the full set of credentials and writes them to
-`deploy/tenants/<slug>.env` (mode 0600, gitignored). Re-running with the
-same `ORG_SLUG` + `SITE_NAME` rotates the token but keeps the org and
-site UUID stable, so install instructions you've already shared stay
-valid.
+The script prints copy-paste client instructions (framework-specific
+snippets for Next.js, Angular, and vanilla JS) and saves credentials to
+`./acme.env` locally. `ALLOWED_ORIGINS` is auto-derived from `DOMAINS`;
+override it if your client's site origin differs from the domain list.
+
+For local development (docker running):
+
+```bash
+make onboard ORG_SLUG=acme ORG_NAME="Acme Corp" \
+  SITE_NAME="Acme Marketing" DOMAINS="acme.com,www.acme.com"
+```
+
+Re-running with the same `ORG_SLUG` + `SITE_NAME` rotates the tokens but
+keeps the org and site UUID stable, so install instructions you've already
+shared stay valid.
 
 ### Isolation guarantees
 
@@ -622,12 +653,13 @@ demand).
 
 **Public endpoints on the box:**
 
-| Path          | Purpose                                         |
-| ------------- | ----------------------------------------------- |
-| `/collect`    | Ingest (tracker posts events here)              |
-| `/v1/*`       | Authenticated query API                         |
-| `/healthz`    | Health probe                                    |
-| anything else | Minimal JSON advertising what this service is   |
+| Path             | Purpose                                         |
+| ---------------- | ----------------------------------------------- |
+| `/collect`       | Ingest (tracker posts events here)              |
+| `/v1/*`          | Authenticated query API (bearer token)          |
+| `/public/v1/*`   | Browser-safe query API (public embed token)     |
+| `/healthz`       | Health probe                                    |
+| anything else    | Minimal JSON advertising what this service is   |
 
 **DB ports are never exposed.** Postgres, ClickHouse, and Redis live on
 the docker-compose network only.
@@ -732,8 +764,10 @@ Core stack
 
 Seed / tenancy
   make seed               create first org/site/token -> deploy/.seeded.env
-  make provision ORG_SLUG=... ORG_NAME=... SITE_NAME=... DOMAINS=...
-                          create additional org/site/token -> deploy/tenants/
+  make onboard ORG_SLUG=... ORG_NAME=... SITE_NAME=... DOMAINS=...
+                          provision org + site + tokens locally -> deploy/tenants/
+  HOST=... make onboard-remote ORG_SLUG=... ORG_NAME=... SITE_NAME=... DOMAINS=...
+                          same, but runs on the prod box via SSH and pulls creds back
 
 Go
   make build              go build ./...
