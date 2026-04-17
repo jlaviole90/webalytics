@@ -170,7 +170,7 @@ func run() error {
 	// CANNOT reach these handlers via /public/v1; public tokens CANNOT
 	// reach /v1. See internal/auth/public.go for the full policy.
 	r.Route("/public/v1/sites/{siteId}", func(r chi.Router) {
-		r.Use(auth.PublicTokenMiddleware(publicTokenStore, siteStore))
+		r.Use(auth.PublicTokenMiddleware(publicTokenStore, ingestSiteStore))
 		v1.MountStatsSubtree(r, v1Deps)
 	})
 

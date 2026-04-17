@@ -204,9 +204,9 @@ func (s *IngestSiteStore) LookupByPublicID(ctx context.Context, publicSiteID str
 }
 
 // ResolvePublicSiteID translates a wb_live_* public site ID into the
-// internal UUID string. Used by the public token middleware so clients
-// can pass either identifier in URLs.
-func (s *SiteStore) ResolvePublicSiteID(ctx context.Context, publicSiteID string) (string, error) {
+// internal UUID string. Uses the BYPASSRLS ingest pool because this
+// runs in the public-token middleware before any org context is set.
+func (s *IngestSiteStore) ResolvePublicSiteID(ctx context.Context, publicSiteID string) (string, error) {
 	var id string
 	err := s.pool.QueryRow(ctx,
 		`SELECT id::TEXT FROM sites WHERE public_site_id = $1 AND deleted_at IS NULL`,
