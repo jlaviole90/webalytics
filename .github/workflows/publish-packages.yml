@@ -73,16 +73,45 @@ jobs:
           set -euo pipefail
           node - <<'NODE'
             const fs = require('fs');
+            const { execSync } = require('child_process');
 
             const bump = (process.env.BUMP || 'patch').trim();
-            const trackerPkg = JSON.parse(
+
+            // Use the higher of local version vs latest published version
+            // to avoid collisions when the release commit was overwritten.
+            const localPkg = JSON.parse(
               fs.readFileSync('./packages/tracker/package.json', 'utf8')
             );
-            const [maj, min, pat] = trackerPkg.version.split('.').map(Number);
+            let registryVersion = '0.0.0';
+            try {
+              registryVersion = execSync(
+                'npm view @jlaviole90/tracker version 2>/dev/null',
+                { encoding: 'utf8' }
+              ).trim();
+            } catch (_) { /* first publish — registry has nothing */ }
+
+            function parse(v) {
+              const [a, b, c] = v.split('.').map(Number);
+              return [a, b, c];
+            }
+            function gt(a, b) {
+              for (let i = 0; i < 3; i++) {
+                if (a[i] > b[i]) return true;
+                if (a[i] < b[i]) return false;
+              }
+              return false;
+            }
+
+            const local = parse(localPkg.version);
+            const registry = parse(registryVersion);
+            const [maj, min, pat] = gt(local, registry) ? local : registry;
+
             let next;
             if (bump === 'major')      next = `${maj + 1}.0.0`;
             else if (bump === 'minor') next = `${maj}.${min + 1}.0`;
             else                        next = `${maj}.${min}.${pat + 1}`;
+
+            console.log(`local=${localPkg.version} registry=${registryVersion} -> v${next}`);
 
             const PKGS = [
               'packages/tracker',

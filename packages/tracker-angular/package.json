@@ -1,6 +1,6 @@
 {
   "name": "@jlaviole90/tracker-angular",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Angular bindings for @jlaviole90/tracker: injectable service + auto page-view tracking on Router navigation.",
   "license": "MIT",
   "type": "module",
@@ -20,7 +20,7 @@
     }
   },
   "dependencies": {
-    "@jlaviole90/tracker": "0.1.4"
+    "@jlaviole90/tracker": "0.1.5"
   },
   "devDependencies": {
     "@angular/common": "^17.3.0",
