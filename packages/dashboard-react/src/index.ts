@@ -17,7 +17,7 @@ export {
   countryFlag,
 } from "./format.js";
 
-export { themeVars } from "./styles.js";
+export { themeVars, RESPONSIVE_CSS } from "./styles.js";
 
 export { MetricCard } from "./components/metric-card.js";
 export type { MetricCardProps } from "./components/metric-card.js";
@@ -36,6 +36,9 @@ export type { TopListProps } from "./components/top-list.js";
 
 export { WebVitalsCards } from "./components/web-vitals.js";
 export type { WebVitalsCardsProps } from "./components/web-vitals.js";
+
+export { WindowPicker } from "./components/window-picker.js";
+export type { WindowPickerProps } from "./components/window-picker.js";
 
 export { Dashboard } from "./components/dashboard.js";
 export type { DashboardProps } from "./components/dashboard.js";

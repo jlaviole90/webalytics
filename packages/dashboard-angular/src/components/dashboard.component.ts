@@ -9,8 +9,17 @@ import {
   inject,
 } from "@angular/core";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
-import { Observable, combineLatest, from, map, switchMap, timer, shareReplay } from "rxjs";
-import type { Filters, WindowSpec } from "../types";
+import {
+  BehaviorSubject,
+  Observable,
+  combineLatest,
+  from,
+  map,
+  switchMap,
+  timer,
+  shareReplay,
+} from "rxjs";
+import type { DashboardTheme, Filters, WindowSpec } from "../types";
 import { WebalyticsDashboardService } from "../service";
 import { WBX_CSS } from "../theme";
 import { RealtimeComponent } from "./realtime.component";
@@ -18,18 +27,10 @@ import { SummaryCardsComponent } from "./summary-cards.component";
 import { TimeseriesChartComponent } from "./timeseries-chart.component";
 import { TopListComponent } from "./top-list.component";
 import { WebVitalsCardsComponent } from "./web-vitals-cards.component";
+import { WindowPickerComponent } from "./window-picker.component";
 
 const DEFAULT_REFRESH_MS = 30_000;
 
-/**
- * Opinionated full-dashboard layout. Fetches all five queries in
- * parallel via the `WebalyticsDashboardService` and shows the result
- * once everything arrives. Auto-refreshes every `refreshMs` (default 30s).
- *
- * For SSR (Angular Universal), render this on the server so the bearer
- * token stays out of the browser. For custom layouts, compose the
- * <wb-*> primitives yourself and feed them data via inputs.
- */
 @Component({
   selector: "wb-dashboard",
   standalone: true,
@@ -40,16 +41,20 @@ const DEFAULT_REFRESH_MS = 30_000;
     TimeseriesChartComponent,
     TopListComponent,
     WebVitalsCardsComponent,
+    WindowPickerComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   styles: [WBX_CSS],
   template: `
-    <div data-wbx style="padding: 24px; display: flex; flex-direction: column; gap: 20px;">
-      <ng-content></ng-content>
+    <div data-wbx [style]="rootStyle" style="padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+      <div *ngIf="showWindowPicker" style="display: flex; justify-content: space-between; align-items: center;">
+        <ng-content></ng-content>
+        <wb-window-picker [active]="activeWindow" (windowChange)="onWindowChange($event)" />
+      </div>
 
       <ng-container *ngIf="view$ | async as v; else loading">
-        <div style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 16px;">
+        <div data-wbx-top-row style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 16px;">
           <wb-summary-cards [data]="v.summary" />
           <wb-realtime [data]="v.realtime" />
         </div>
@@ -85,48 +90,77 @@ export class DashboardComponent implements OnInit {
   /** Auto-refresh interval in ms. Set to 0 to disable. */
   @Input() refreshMs = DEFAULT_REFRESH_MS;
 
+  /** Show the window-preset picker bar at the top. */
+  @Input() showWindowPicker = true;
+
+  /** Override theme CSS variables. */
+  @Input() theme?: DashboardTheme;
+
   private readonly svc = inject(WebalyticsDashboardService);
   private readonly destroyRef = inject(DestroyRef);
 
+  private window$ = new BehaviorSubject<WindowSpec>("7d");
+  activeWindow: WindowSpec = "7d";
   view$!: Observable<View>;
 
+  get rootStyle(): Record<string, string> {
+    const s: Record<string, string> = {};
+    if (!this.theme) return s;
+    if (this.theme.accent) s["--wbx-accent"] = this.theme.accent;
+    if (this.theme.background) s["--wbx-bg"] = this.theme.background;
+    if (this.theme.surface) s["--wbx-surface"] = this.theme.surface;
+    if (this.theme.foreground) s["--wbx-fg"] = this.theme.foreground;
+    if (this.theme.border) s["--wbx-border"] = this.theme.border;
+    if (this.theme.radius) s["--wbx-radius"] = this.theme.radius;
+    if (this.theme.fontFamily) s["--wbx-font"] = this.theme.fontFamily;
+    return s;
+  }
+
   ngOnInit(): void {
+    this.activeWindow = this.window;
+    this.window$.next(this.window);
+
     const tick$ = this.refreshMs > 0
       ? timer(0, this.refreshMs)
       : timer(0);
 
-    this.view$ = tick$.pipe(
-      switchMap(() => this.fetchAll()),
+    this.view$ = combineLatest([this.window$, tick$]).pipe(
+      switchMap(([w]) => this.fetchAll(w)),
       shareReplay(1),
       takeUntilDestroyed(this.destroyRef),
     );
   }
 
-  private fetchAll(): Observable<View> {
+  onWindowChange(w: WindowSpec): void {
+    this.activeWindow = w;
+    this.window$.next(w);
+  }
+
+  private fetchAll(w: WindowSpec): Observable<View> {
     return combineLatest([
-      from(this.svc.client.summary(this.window, { siteId: this.siteId, filters: this.filters })),
+      from(this.svc.client.summary(w, { siteId: this.siteId, filters: this.filters })),
       from(this.svc.client.realtime({ siteId: this.siteId })),
-      from(this.svc.client.timeseries(this.window, "visitors", this.defaultInterval(this.window), {
+      from(this.svc.client.timeseries(w, "visitors", this.defaultInterval(w), {
         siteId: this.siteId,
         filters: this.filters,
       })),
-      from(this.svc.client.breakdown(this.window, "path", {
+      from(this.svc.client.breakdown(w, "path", {
         siteId: this.siteId,
         filters: this.filters,
       })),
-      from(this.svc.client.breakdown(this.window, "referrer_host", {
+      from(this.svc.client.breakdown(w, "referrer_host", {
         siteId: this.siteId,
         filters: this.filters,
       })),
-      from(this.svc.client.breakdown(this.window, "country", {
+      from(this.svc.client.breakdown(w, "country", {
         siteId: this.siteId,
         filters: this.filters,
       })),
-      from(this.svc.client.breakdown(this.window, "device", {
+      from(this.svc.client.breakdown(w, "device", {
         siteId: this.siteId,
         filters: this.filters,
       })),
-      from(this.svc.client.webVitals(this.window, { siteId: this.siteId, filters: this.filters })),
+      from(this.svc.client.webVitals(w, { siteId: this.siteId, filters: this.filters })),
     ]).pipe(
       map(([summary, realtime, timeseries, pages, referrers, countries, devices, vitals]) => ({
         summary,

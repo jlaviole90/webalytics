@@ -52,6 +52,7 @@ export async function TopList({
   const display = title ?? defaultTitle(dimension);
   const results = data.results;
   const render = renderKey ?? defaultRenderKey;
+  const maxShare = Math.max(...results.map((r) => r.share)) || 1;
 
   return (
     <div
@@ -91,7 +92,7 @@ export async function TopList({
                 }}
               >
                 <div style={barTrack} aria-hidden>
-                  <div style={barFill(r.share)} />
+                  <div style={barFill(r.share / maxShare)} />
                 </div>
                 <span
                   style={{

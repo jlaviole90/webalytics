@@ -24,7 +24,7 @@ import { WBX_CSS } from "../theme";
       </div>
       <ng-template #list>
         <div style="margin-top: 8px;">
-          <div *ngFor="let r of data.results" data-wbx-row>
+          <div *ngFor="let r of visibleRows" data-wbx-row>
             <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
               <div data-wbx-bar-track aria-hidden="true">
                 <div data-wbx-bar-fill [style.width.%]="pct(r.share)"></div>
@@ -57,7 +57,14 @@ export class TopListComponent {
   /** Override the card title; defaults to a nice label per dimension. */
   @Input() title?: string;
 
+  /** Max visible rows before truncation. */
+  @Input() maxRows = 8;
+
   readonly labelFallback = "(direct / unknown)";
+
+  get visibleRows() {
+    return this.data.results.slice(0, this.maxRows);
+  }
 
   get resolvedTitle(): string {
     return (this.title ?? this.defaultTitle(this.data.dimension)).toUpperCase();
@@ -67,8 +74,14 @@ export class TopListComponent {
     return formatInt(this.data.total);
   }
 
+  get maxShare(): number {
+    const rows = this.visibleRows;
+    if (!rows.length) return 1;
+    return Math.max(...rows.map((r) => r.share)) || 1;
+  }
+
   pct(share: number) {
-    return Math.max(2, Math.min(100, share * 100));
+    return Math.max(2, Math.min(100, (share / this.maxShare) * 100));
   }
 
   fmt(n: number) {

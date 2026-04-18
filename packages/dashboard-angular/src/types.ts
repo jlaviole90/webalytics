@@ -98,3 +98,21 @@ export interface WebVitalsResponse {
     >;
   }>;
 }
+
+/** Override CSS custom properties on the dashboard root without writing CSS. */
+export interface DashboardTheme {
+  /** Primary accent color (default: #0070f3). */
+  accent?: string;
+  /** Card / container background (default: #ffffff). */
+  background?: string;
+  /** Subtle surface for inputs, tracks, etc. (default: #fafafa). */
+  surface?: string;
+  /** Primary text color (default: #0a0a0a). */
+  foreground?: string;
+  /** Border color (default: #e5e7eb). */
+  border?: string;
+  /** Border radius token, e.g. "12px" (default: 8px). */
+  radius?: string;
+  /** Font family stack (default: system sans-serif). */
+  fontFamily?: string;
+}

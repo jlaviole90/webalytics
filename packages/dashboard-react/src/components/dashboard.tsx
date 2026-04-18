@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import type { DashboardClient } from "../client.js";
-import type { Filters, WindowSpec } from "../types.js";
-import { grid, themeVars } from "../styles.js";
+import type { DashboardTheme, Filters, WindowSpec } from "../types.js";
+import { grid, themeVars, RESPONSIVE_CSS } from "../styles.js";
 import { Realtime } from "./realtime.js";
 import { SummaryCards } from "./summary.js";
 import { TimeseriesChart } from "./timeseries.js";
@@ -15,8 +15,23 @@ export interface DashboardProps {
   filters?: Filters;
   /** Optional heading / subtitle slot content. */
   header?: React.ReactNode;
+  /** Override theme CSS variables without writing custom CSS. */
+  theme?: DashboardTheme;
   className?: string;
   style?: CSSProperties;
+}
+
+function themeToVars(t?: DashboardTheme): CSSProperties {
+  if (!t) return {};
+  const v: Record<string, string> = {};
+  if (t.accent) v["--wbx-accent"] = t.accent;
+  if (t.background) v["--wbx-bg"] = t.background;
+  if (t.surface) v["--wbx-surface"] = t.surface;
+  if (t.foreground) v["--wbx-fg"] = t.foreground;
+  if (t.border) v["--wbx-border"] = t.border;
+  if (t.radius) v["--wbx-radius"] = t.radius;
+  if (t.fontFamily) v["--wbx-font"] = t.fontFamily;
+  return v as CSSProperties;
 }
 
 /**
@@ -24,9 +39,8 @@ export interface DashboardProps {
  * you get a Vercel-style Analytics view without writing layout code.
  * For custom layouts, compose the primitives yourself.
  *
- * All sub-components run their fetches in parallel (React awaits the
- * server-component tree concurrently), so total render time is
- * dominated by the slowest single query.
+ * For interactive window picking, pair with the exported `WindowPicker`
+ * client component and control `window` via state in a client wrapper.
  */
 export function Dashboard({
   client,
@@ -34,6 +48,7 @@ export function Dashboard({
   siteId,
   filters,
   header,
+  theme,
   className,
   style,
 }: DashboardProps) {
@@ -43,6 +58,7 @@ export function Dashboard({
       className={className}
       style={{
         ...themeVars,
+        ...themeToVars(theme),
         padding: 24,
         display: "flex",
         flexDirection: "column",
@@ -50,10 +66,10 @@ export function Dashboard({
         ...style,
       }}
     >
+      <style dangerouslySetInnerHTML={{ __html: RESPONSIVE_CSS }} />
       {header}
-      {/* Top row: summary + realtime side-by-side. Two columns so the
-          realtime card doesn't stretch edge-to-edge on wide screens. */}
       <div
+        data-wbx-top-row
         style={{
           display: "grid",
           gridTemplateColumns: "minmax(0, 2fr) minmax(260px, 1fr)",
@@ -75,8 +91,7 @@ export function Dashboard({
         filters={filters}
       />
 
-      {/* 2x2 breakdown grid */}
-      <div style={grid(2)}>
+      <div data-wbx-grid-2 style={grid(2)}>
         {/* @ts-expect-error async Server Component */}
         <TopList
           client={client}

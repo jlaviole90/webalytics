@@ -39,6 +39,8 @@ export const card: CSSProperties = {
   border: "1px solid var(--wbx-border)",
   borderRadius: "var(--wbx-radius)",
   padding: 20,
+  display: "flex",
+  flexDirection: "column",
 };
 
 export const cardTitle: CSSProperties = {
@@ -109,6 +111,15 @@ export const pulseDot: CSSProperties = {
   // Animation keyframes are emitted via <style> in the Realtime component;
   // keeping them inline-only here.
 };
+
+export const RESPONSIVE_CSS = `
+@media (max-width: 640px) {
+  [data-wbx] { padding: 12px !important; }
+  [data-wbx-top-row] { grid-template-columns: 1fr !important; }
+  [data-wbx-part="metric-card"] [data-wbx-value] { font-size: 26px; }
+  [data-wbx-grid-2] { grid-template-columns: 1fr !important; }
+}
+`;
 
 export const badge = (kind: "good" | "warn" | "bad"): CSSProperties => ({
   display: "inline-block",

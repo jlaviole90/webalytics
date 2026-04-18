@@ -30,4 +30,5 @@ export { RealtimeComponent } from "./components/realtime.component";
 export { TimeseriesChartComponent } from "./components/timeseries-chart.component";
 export { TopListComponent } from "./components/top-list.component";
 export { WebVitalsCardsComponent } from "./components/web-vitals-cards.component";
+export { WindowPickerComponent } from "./components/window-picker.component";
 export { DashboardComponent } from "./components/dashboard.component";
