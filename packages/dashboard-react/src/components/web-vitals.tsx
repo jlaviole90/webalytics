@@ -92,24 +92,37 @@ export async function WebVitalsCards({
             <div style={{ ...subtle, marginTop: 4 }}>
               p75 · {t.label}
             </div>
-            {total > 0 && (
-              <div
-                style={{
-                  marginTop: 16,
-                  display: "flex",
-                  height: 8,
-                  borderRadius: 4,
-                  overflow: "hidden",
-                  background: "var(--wbx-surface)",
-                }}
-                title={`${row!.good} good · ${row!.needs_improvement} needs-improvement · ${row!.poor} poor`}
-              >
-                <div style={{ flex: row!.good / total, background: "var(--wbx-good)" }} />
-                <div
-                  style={{ flex: row!.needs_improvement / total, background: "var(--wbx-warn)" }}
-                />
-                <div style={{ flex: row!.poor / total, background: "var(--wbx-bad)" }} />
+            {row && row.p95 > 0 && (
+              <div style={{ ...subtle, marginTop: 2, fontSize: 11 }}>
+                p95 {t.format(row.p95)}
               </div>
+            )}
+            {total > 0 && (
+              <>
+                <div
+                  style={{
+                    marginTop: 16,
+                    display: "flex",
+                    height: 24,
+                    borderRadius: 4,
+                    overflow: "hidden",
+                    background: "var(--wbx-surface)",
+                  }}
+                >
+                  <div style={{ flex: row!.good / total, background: "var(--wbx-good)" }} />
+                  <div
+                    style={{ flex: row!.needs_improvement / total, background: "var(--wbx-warn)" }}
+                  />
+                  <div style={{ flex: row!.poor / total, background: "var(--wbx-bad)" }} />
+                </div>
+                <div style={{ ...subtle, marginTop: 6, fontSize: 11 }}>
+                  {Math.round((row!.good / total) * 100)}% good
+                  {" · "}
+                  {Math.round((row!.needs_improvement / total) * 100)}% needs work
+                  {" · "}
+                  {Math.round((row!.poor / total) * 100)}% poor
+                </div>
+              </>
             )}
             <div style={{ ...subtle, marginTop: 6 }}>
               {row ? `${formatInt(row.samples)} samples` : "no samples"}

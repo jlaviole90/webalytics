@@ -42,6 +42,23 @@ export function formatCLS(n: number): string {
 }
 
 /**
+ * Format a timeseries bucket ISO timestamp. UTC-fixed to avoid
+ * server/client locale differences that would cause hydration warnings.
+ */
+export function formatBucket(
+  iso: string,
+  interval: "minute" | "hour" | "day" | "week" | "month",
+): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.valueOf())) return iso;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  if (interval === "minute" || interval === "hour") {
+    return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+  }
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+}
+
+/**
  * Country-code -> flag emoji. Falls back to the raw string if the code
  * isn't two ASCII letters. Uses regional-indicator symbols (U+1F1E6..).
  */

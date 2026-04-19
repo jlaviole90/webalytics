@@ -1,16 +1,15 @@
 import { defineConfig } from "tsup";
 
-// RSC-safe bundling: no "use client" directives on any of these entries,
-// so Next.js treats every component as a Server Component by default.
-// Anything that needs interactivity (Realtime auto-refresh, expand/collapse)
-// is deferred to the caller and documented in the README.
+// bundle: false compiles each file individually so "use client" directives
+// are preserved in their respective output files. Next.js App Router traces
+// through re-exports and respects those boundaries correctly.
 export default defineConfig({
-  entry: ["src/index.ts"],
+  entry: ["src/**/*.ts", "src/**/*.tsx"],
   format: ["esm", "cjs"],
   dts: true,
   sourcemap: true,
   clean: true,
-  treeshake: true,
+  bundle: false,
   external: ["react", "react-dom"],
   target: "es2022",
 });
