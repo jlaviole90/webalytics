@@ -99,6 +99,7 @@ export function Dashboard({
           window={window}
           siteId={siteId}
           filters={filters}
+          barScale="absolute"
         />
         {/* @ts-expect-error async Server Component */}
         <TopList
@@ -107,6 +108,7 @@ export function Dashboard({
           window={window}
           siteId={siteId}
           filters={filters}
+          barScale="absolute"
         />
         {/* @ts-expect-error async Server Component */}
         <TopList
@@ -115,6 +117,7 @@ export function Dashboard({
           window={window}
           siteId={siteId}
           filters={filters}
+          barScale="absolute"
         />
         {/* @ts-expect-error async Server Component */}
         <TopList
@@ -123,6 +126,8 @@ export function Dashboard({
           window={window}
           siteId={siteId}
           filters={filters}
+          barScale="absolute"
+          variant="donut"
         />
       </div>
 

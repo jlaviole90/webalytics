@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { useState, useEffect, type CSSProperties } from "react";
 import type { WindowSpec } from "../types.js";
 
 const PRESETS: { label: string; value: WindowSpec }[] = [
@@ -45,19 +45,45 @@ export interface WindowPickerProps {
   style?: CSSProperties;
 }
 
+function resolvedRange(w: WindowSpec): string | null {
+  if (typeof w !== "string") return null;
+  const now = new Date();
+  const MS: Record<string, number> = {
+    "1h": 3_600_000,
+    "24h": 86_400_000,
+    "7d": 7 * 86_400_000,
+    "30d": 30 * 86_400_000,
+    "90d": 90 * 86_400_000,
+  };
+  const from = new Date(now.getTime() - (MS[w] ?? 0));
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const fmt = (d: Date) => `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
+  return `${fmt(from)} – ${fmt(now)}`;
+}
+
 export function WindowPicker({ active, onChange, className, style }: WindowPickerProps) {
+  const [range, setRange] = useState<string | null>(null);
+  useEffect(() => { setRange(resolvedRange(active)); }, [active]);
+
   return (
-    <div data-wbx-picker className={className} style={{ ...pickerBar, ...style }}>
-      {PRESETS.map((p) => (
-        <button
-          key={p.label}
-          type="button"
-          style={p.value === active ? { ...btnBase, ...btnActive } : btnBase}
-          onClick={() => onChange(p.value)}
-        >
-          {p.label}
-        </button>
-      ))}
+    <div className={className} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, ...style }}>
+      <div data-wbx-picker style={pickerBar}>
+        {PRESETS.map((p) => (
+          <button
+            key={p.label}
+            type="button"
+            style={p.value === active ? { ...btnBase, ...btnActive } : btnBase}
+            onClick={() => onChange(p.value)}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      {range && (
+        <div style={{ fontSize: 11, color: "var(--wbx-fg-subtle)", fontFamily: "var(--wbx-font)" }}>
+          {range}
+        </div>
+      )}
     </div>
   );
 }

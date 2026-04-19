@@ -1,7 +1,8 @@
 import type { CSSProperties } from "react";
 import type { DashboardClient } from "../client.js";
 import { formatInt } from "../format.js";
-import { card, cardTitle, metricValue, pulseDot, row, rowLast, subtle } from "../styles.js";
+import { card, cardTitle, pulseDot, row, rowLast, subtle } from "../styles.js";
+import { LiveCount } from "./live-count.js";
 
 export interface RealtimeProps {
   client: DashboardClient;
@@ -50,7 +51,7 @@ export async function Realtime({
           }}
           aria-hidden
         />
-        <span style={metricValue}>{formatInt(data.online)}</span>
+        <LiveCount initialValue={data.online} />
         <span style={subtle}>online now</span>
       </div>
 
